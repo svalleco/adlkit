@@ -18,7 +18,7 @@
 
 5. When in doubt, [search open issues](https://github.com/anomalousdl/adlkit/issues), then ask.
 
-6. We reserve the right to revoke pull requests that not following the
+6. We reserve the right to revoke pull requests that do not follow the
 described coding conventions.
 
 7. Have fun!
