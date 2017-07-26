@@ -3,7 +3,6 @@
 # ADLKit
 
 [![Join the chat at https://gitter.im/anomalousdl/adlkit](https://badges.gitter.im/anomalousdl/adlkit.svg)](https://gitter.im/anomalousdl/adlkit?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-*Powered by AnomalousDL*
 
 ### What is ADLKit?
 *A library that makes deep learning easy...*
