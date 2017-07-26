@@ -16,6 +16,8 @@ COPY ../keras.json /root/.keras/keras.json
 
 COPY ./data/ /data/
 
+COPY . /opt/adlkit
+
 #RUN echo fs.file-max = 32000 | tee -a /etc/sysctl.conf && \
 #      echo root soft nofile 4096 | tee -a /etc/
 #      echo root hard nofile 10240

@@ -7,3 +7,5 @@ COPY ./keras.json /root/.keras/keras.json
 
 COPY ./data/ /data/
 
+COPY . /opt/adlkit
+
