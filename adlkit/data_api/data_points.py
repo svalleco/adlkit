@@ -1,8 +1,9 @@
 import copy
 import shelve
-import uuid
 from abc import ABCMeta
 from datetime import datetime
+
+from .utils import time_stamp_to_epoch_ms
 
 
 class DataPoint(object):
@@ -25,7 +26,12 @@ class DataPoint(object):
 
         # a required attribute, all other info is derived from it.
         self.timestamp = self.timestamp or datetime.utcnow()
-        self.id = self.id or str(uuid.uuid4())
+        # tmp = "{0}_{1}".format(str(timestamp_to_epoch(self.timestamp)),
+        #                        str(uuid.uuid4()))
+
+        # tmp = str(uuid.uuid4())
+        tmp = repr(time_stamp_to_epoch_ms(self.timestamp))
+        self.id = self.id or tmp
 
     def from_shelve(self, shelve_item):
         tmp = shelve_item.items()

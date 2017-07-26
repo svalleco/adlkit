@@ -33,6 +33,19 @@ def epoch_time_to_file_name(date_time):
                                             str(tmp.second).zfill(2))
 
 
-def timestamp_to_epoch(timestamp):
+def timestamp_to_epoch(timestamp, out_type=int):
     assert isinstance(timestamp, datetime)
-    return int(time.mktime(timestamp.timetuple()))
+    return out_type(time.mktime(timestamp.timetuple()))
+
+
+# sourced from
+# https://stackoverflow.com/questions/6999726/how-can-i-convert-a-datetime-object-to-milliseconds-since-epoch-unix-time-in-p
+epoch = datetime.utcfromtimestamp(0)
+
+
+def time_stamp_to_epoch_ms(dt):
+    return (dt - epoch).total_seconds() * 1000.0
+
+
+def epoch_ms_to_timestamp(epoch_ms):
+    return datetime.utcfromtimestamp(epoch_ms / 1000.0)

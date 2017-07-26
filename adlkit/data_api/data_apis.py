@@ -1,3 +1,5 @@
+import bisect
+import datetime
 import logging as lg
 import os
 import shelve
@@ -5,6 +7,7 @@ import shutil
 from abc import ABCMeta
 
 from .data_points import DataPoint, Label
+from .utils import time_stamp_to_epoch_ms
 
 
 class DataAPI(object):
@@ -56,6 +59,8 @@ class FileDataAPI(DataAPI):
     LABEL_TYPE = object()
     DATAPOINT_TYPE = object()
 
+    time_index = None
+
     def __init__(self, base_dir, label_dir=None, consolidate=True):
         """
 
@@ -79,6 +84,31 @@ class FileDataAPI(DataAPI):
 
         self.save_label(self.all_label, upsert=False)
 
+        self.time_index = self._mk_time_index()
+
+    def _search_time(self, timestamp):
+        """
+
+        :param timestamp:
+        :return:
+        """
+        assert issubclass(timestamp.__class__, datetime.datetime)
+        target = time_stamp_to_epoch_ms(timestamp)
+
+        hit = bisect.bisect(self.time_index, target)
+
+        if not hit:
+            return None
+        return hit
+
+    def _update_time_index(self):
+        self.time_index = self._mk_time_index()
+
+    def _mk_time_index(self):
+        tmp_file_names = os.listdir(self.data_point_dir)
+
+        return map(lambda x: float(x[:-10]), tmp_file_names)
+
     def _mkdirs(self):
         for directory in self.directories:
             if not os.path.exists(directory):
@@ -95,25 +125,32 @@ class FileDataAPI(DataAPI):
 
     def save_data_point(self, data_point, labels=None, upsert=True):
         assert issubclass(data_point.__class__, DataPoint)
-        # shelve_path = os.path.join(self.data_point_dir, data_point.id + '.pickle.gz')
-
-        # self.update_shelve(shelve_path, data_point.to_dict())
 
         shelve_handle, new = self._get_shelve(data_point)
         if shelve_handle is None or (not upsert and not new):
             return False
 
-        else:
-            self._update_shelve(shelve_handle, data_point.to_dict())
+        self._update_shelve(shelve_handle, data_point.to_dict())
 
-            write_labels = list(labels or []) + [self.all_label]
+        write_labels = list(labels or []) + [self.all_label]
 
-            for label in write_labels:
-                label.append_data_point(data_point)
-                # TODO determine a better way to check this.
-                assert self.save_label(label) == True
+        for label in write_labels:
+            label.append_data_point(data_point)
+            # TODO determine a better way to check this.
+            assert self.save_label(label) == True
 
-            return True
+        self._update_time_index()
+        return True
+
+    def save_label(self, label, upsert=True):
+        assert issubclass(label.__class__, Label)
+        shelve_handle, new = self._get_shelve(label)
+
+        if shelve_handle is None or (not upsert and not new):
+            return False
+
+        self._update_shelve(shelve_handle, label.to_dict())
+        return True
 
     def get_labels(self):
         """
@@ -128,31 +165,105 @@ class FileDataAPI(DataAPI):
 
         for index, label in enumerate(labels):
             label_shelve_handle, _ = self._get_shelve(label, self.LABEL_TYPE)
-            tmp = label_shelve_handle.items()
 
-            labels[index] = Label(dict(tmp))
+            labels[index] = self._wrap_shelve(label_shelve_handle, Label)
+
             label_shelve_handle.close()
 
         return labels
 
-    def save_label(self, label, upsert=True):
+    def get_label(self, label_name, upsert=True):
+        all_label_handle, new = self._get_shelve(label_name, self.LABEL_TYPE)
+        # TODO wat do when label does not exist?
+        if not upsert and new:
+            return None
+        return self._wrap_shelve(all_label_handle, Label)
+
+    def get_by_label(self, label):
         assert issubclass(label.__class__, Label)
-        shelve_handle, new = self._get_shelve(label)
+        shelve_handle, _ = self._get_shelve(label)
+        label_object = self._wrap_shelve(shelve_handle, Label)
 
-        if shelve_handle is None or (not upsert and not new):
-            return False
+        out = list(label_object.members)
+        for index, member in enumerate(out):
+            out[index] = self.get_by_id(member)
 
-        else:
-            self._update_shelve(shelve_handle, label.to_dict())
-            return True
+        return out
 
+    def get_by_id(self, data_point_id):
+        shelve_handle, new = self._get_shelve(data_point_id, self.DATAPOINT_TYPE, upsert=False)
+        if not new:
+            data_point_object = self._wrap_shelve(shelve_handle, DataPoint)
+            return data_point_object
+
+        return None
+
+    def get_by_ids(self, data_point_ids):
+        for index, data_point_id in enumerate(data_point_ids):
+            data_point_ids[index] = self.get_by_id(repr(data_point_id))
+        return data_point_ids
+
+    def get_by_time(self, start_time, end_time, labels=None):
+
+        all_label = self.get_label(self.all_label)
+
+        self._sanity_check(start_time, end_time)
+        # earliest = all_label.start_time
+        # latest = all_label.end_time
+        #
+        # # Sanity Checks
+        # if end_time < earliest or start_time > latest:
+        #     lg.warning("no DataPoints in: start_time={0} end_time={1}".format(start_time, end_time))
+        #     return None
+
+        start_index = self._search_time(start_time)
+        end_index = self._search_time(end_time)
+
+        # TODO possible off-by-one error here
+        data_point_ids = self.time_index[start_index:end_index]
+
+        return self.get_by_ids(data_point_ids)
+
+    def get_before(self, end_time):
+        self._sanity_check(end_time=end_time)
+        end_index = self._search_time(end_time)
+        data_point_ids = self.time_index[:end_index]
+
+        return self.get_by_ids(data_point_ids)
+
+    def get_after(self, start_time):
+        self._sanity_check(start_time=start_time)
+        start_index = self._search_time(start_time)
+        data_point_ids = self.time_index[start_index:]
+
+        return self.get_by_ids(data_point_ids)
+
+    def _sanity_check(self, start_time=None, end_time=None):
+        all_label = self.get_label(self.all_label)
+        if start_time:
+            latest = all_label.end_time
+            if start_time > latest:
+                lg.warning("no DataPoints after: start_time={0}".format(start_time))
+                return False
+
+        if end_time:
+            earliest = all_label.start_time
+            if end_time < earliest:
+                lg.warning("no DataPoints before: end_time={0}".format(end_time))
+                return False
+        return True
+
+    def _wrap_shelve(self, shelve_handle, wrapper_class):
+        tmp = shelve_handle.items()
+        shelve_handle.close()
+        return wrapper_class(dict(tmp))
 
     @staticmethod
     def _update_shelve(shelve_handle, tmp_dict):
         shelve_handle.update(tmp_dict)
         shelve_handle.close()
 
-    def _get_shelve(self, item, shelve_type=None):
+    def _get_shelve(self, item, shelve_type=None, upsert=True):
         """
         TODO I'm trying to do way too much with this function. Needs a solid revision.
         :param item:
@@ -183,6 +294,9 @@ class FileDataAPI(DataAPI):
             shelve_path = shelve_path + '.pickle.gz'
 
         new = not os.path.exists(shelve_path)
+        if not upsert and new:
+            return None, False
+
         return shelve.open(shelve_path, writeback=True), new
         #
         # def get_by_label(self, label):
