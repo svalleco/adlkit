@@ -1,9 +1,8 @@
-import datetime
 from unittest import TestCase
 
 from adlkit.data_api.data_apis import FileDataAPI
 from adlkit.data_api.data_points import DataPoint, Label
-from adlkit.data_api.utils import epoch_ms_to_timestamp, time_stamp_to_epoch_ms
+from adlkit.data_api.utils import epoch_ms_to_timestamp, timestamp_to_epoch_ms
 
 
 class TestFileDataAPI(TestCase):
@@ -11,6 +10,9 @@ class TestFileDataAPI(TestCase):
         self.tmp_api = FileDataAPI('./tmp')
         self.my_label = Label({'name': 'thing'})
         self.my_data_point = DataPoint({'glip': 'glop'})
+
+    def tearDown(self):
+        self.tmp_api.purge()
 
     def test_save_label(self):
         value = self.tmp_api.save_label(self.my_label)
@@ -58,14 +60,6 @@ class TestFileDataAPI(TestCase):
             self.assertIsInstance(result, DataPoint)
 
     def test_get_by_time(self):
-        start_time = datetime.datetime.fromtimestamp(0)
-        end_time = datetime.datetime.now()
-
-        results = self.tmp_api.get_by_time(start_time, end_time)
-
-    #   TODO finish this
-
-    def test_search_time(self):
         upper = 10
         lower = 0
         check = 5
@@ -75,9 +69,7 @@ class TestFileDataAPI(TestCase):
             tmp_data_points.append(tmp_data_point)
             self.tmp_api.save_data_point(tmp_data_point)
 
-        # start = self.tmp_api.time_index[upper]
-        # end = self.tmp_api.time_index[check]
-
+        # Upper bounds check
         ##################################################
         start_timestamp = tmp_data_points[check].timestamp
         end_timestamp = tmp_data_points[upper].timestamp
@@ -89,6 +81,8 @@ class TestFileDataAPI(TestCase):
         self.assertGreaterEqual(len(results), upper - check)
         for result in results:
             self.assertIsInstance(result, DataPoint)
+
+        # Lower bounds check
         ##################################################
         start_timestamp = tmp_data_points[lower].timestamp
         end_timestamp = tmp_data_points[check].timestamp
@@ -140,7 +134,23 @@ class TestFileDataAPI(TestCase):
 
     def test_epoch_ms(self):
         init = self.my_data_point.timestamp
-        epoch_ms = time_stamp_to_epoch_ms(init)
+        epoch_ms = timestamp_to_epoch_ms(init)
         out = epoch_ms_to_timestamp(epoch_ms)
 
         self.assertEqual(init, out)
+
+    def test_get_by_time_with_labels(self):
+        upper = 10
+        out = list()
+        labels = [self.my_label, self.tmp_api.all_label]
+        for _ in range(upper):
+            tmp = DataPoint({'glip': 'glop'})
+            out.append(tmp)
+            self.tmp_api.save_data_point(tmp, labels=labels)
+
+        results = self.tmp_api.get_by_time(out[0].timestamp, out[-1].timestamp, labels=labels)
+
+        self.assertIsInstance(results, list)
+        self.assertEqual(len(results), upper)
+        for result in results:
+            self.assertIsInstance(result, DataPoint)

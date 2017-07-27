@@ -7,7 +7,7 @@ from .workers import Worker
 
 # lg.basicConfig(level=lg.INFO)
 
-generator_logger = lg.getLogger('data_providers.main.generators')
+generator_logger = lg.getLogger('data_providers.h5_file_insert.generators')
 
 
 class BaseGenerator(Worker):

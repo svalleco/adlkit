@@ -7,7 +7,7 @@ import shutil
 from abc import ABCMeta
 
 from .data_points import DataPoint, Label
-from .utils import time_stamp_to_epoch_ms
+from .utils import timestamp_to_epoch_ms, timed
 
 
 class DataAPI(object):
@@ -86,46 +86,14 @@ class FileDataAPI(DataAPI):
 
         self.time_index = self._mk_time_index()
 
-    def _search_time(self, timestamp):
-        """
-
-        :param timestamp:
-        :return:
-        """
-        assert issubclass(timestamp.__class__, datetime.datetime)
-        target = time_stamp_to_epoch_ms(timestamp)
-
-        hit = bisect.bisect(self.time_index, target)
-
-        if not hit:
-            return None
-        return hit
-
-    def _update_time_index(self):
-        self.time_index = self._mk_time_index()
-
-    def _mk_time_index(self):
-        tmp_file_names = os.listdir(self.data_point_dir)
-
-        return map(lambda x: float(x[:-10]), tmp_file_names)
-
-    def _mkdirs(self):
-        for directory in self.directories:
-            if not os.path.exists(directory):
-                try:
-                    os.mkdir(directory)
-                except OSError as e:
-                    lg.critical("Unable to use / make specified directory={0}".format(directory))
-                    lg.error(e)
-                    raise OSError
-
     def purge(self):
         shutil.rmtree(self.base_dir)
         self._mkdirs()
 
-    def save_data_point(self, data_point, labels=None, upsert=True):
+    # @timed
+    def save_data_point(self, data_point, labels=None, upsert=True, update_index=True):
         assert issubclass(data_point.__class__, DataPoint)
-
+        lg.debug("saving DataPoint={0}".format(data_point.id))
         shelve_handle, new = self._get_shelve(data_point)
         if shelve_handle is None or (not upsert and not new):
             return False
@@ -139,9 +107,19 @@ class FileDataAPI(DataAPI):
             # TODO determine a better way to check this.
             assert self.save_label(label) == True
 
-        self._update_time_index()
+        if update_index:
+            self._update_time_index()
+
         return True
 
+    # @timed
+    def save_data_points(self, data_points, labels=None, upsert=True, update_index=True):
+        for data_point in data_points:
+            self.save_data_point(data_point, labels, upsert, update_index=False)
+        if update_index:
+            self._update_time_index()
+
+    # @timed
     def save_label(self, label, upsert=True):
         assert issubclass(label.__class__, Label)
         shelve_handle, new = self._get_shelve(label)
@@ -152,6 +130,7 @@ class FileDataAPI(DataAPI):
         self._update_shelve(shelve_handle, label.to_dict())
         return True
 
+    # @timed
     def get_labels(self):
         """
         This method should return a list of all Labels in the data base.
@@ -172,13 +151,17 @@ class FileDataAPI(DataAPI):
 
         return labels
 
+    # @timed
     def get_label(self, label_name, upsert=True):
-        all_label_handle, new = self._get_shelve(label_name, self.LABEL_TYPE)
+        label_handle, new = self._get_shelve(label_name, self.LABEL_TYPE)
         # TODO wat do when label does not exist?
         if not upsert and new:
             return None
-        return self._wrap_shelve(all_label_handle, Label)
+        if new:
+            label_handle['name'] = label_name
+        return self._wrap_shelve(label_handle, Label)
 
+    # @timed
     def get_by_label(self, label):
         assert issubclass(label.__class__, Label)
         shelve_handle, _ = self._get_shelve(label)
@@ -190,31 +173,28 @@ class FileDataAPI(DataAPI):
 
         return out
 
+    # @timed
     def get_by_id(self, data_point_id):
+        """
+
+        :param data_point_id: str
+        :return:
+        """
         shelve_handle, new = self._get_shelve(data_point_id, self.DATAPOINT_TYPE, upsert=False)
-        if not new:
-            data_point_object = self._wrap_shelve(shelve_handle, DataPoint)
-            return data_point_object
+        if new:
+            return None
+        data_point_object = self._wrap_shelve(shelve_handle, DataPoint)
+        return data_point_object
 
-        return None
-
+    # @timed
     def get_by_ids(self, data_point_ids):
         for index, data_point_id in enumerate(data_point_ids):
             data_point_ids[index] = self.get_by_id(repr(data_point_id))
         return data_point_ids
 
+    # @timed
     def get_by_time(self, start_time, end_time, labels=None):
-
-        all_label = self.get_label(self.all_label)
-
         self._sanity_check(start_time, end_time)
-        # earliest = all_label.start_time
-        # latest = all_label.end_time
-        #
-        # # Sanity Checks
-        # if end_time < earliest or start_time > latest:
-        #     lg.warning("no DataPoints in: start_time={0} end_time={1}".format(start_time, end_time))
-        #     return None
 
         start_index = self._search_time(start_time)
         end_index = self._search_time(end_time)
@@ -222,8 +202,27 @@ class FileDataAPI(DataAPI):
         # TODO possible off-by-one error here
         data_point_ids = self.time_index[start_index:end_index]
 
+        if labels:
+            assert isinstance(labels, list)
+            assert len(labels) > 0
+            labels = list(labels)
+
+            if isinstance(labels[0], Label):
+                pass
+            elif isinstance(labels[0], str):
+                for index, label in labels:
+                    labels[index] = self.get_label(label, upsert=False)
+
+            members = set()
+
+            for label in labels:
+                members.update(label.get_members())
+
+            data_point_ids = list(members.union(data_point_ids))
+
         return self.get_by_ids(data_point_ids)
 
+    # @timed
     def get_before(self, end_time):
         self._sanity_check(end_time=end_time)
         end_index = self._search_time(end_time)
@@ -231,32 +230,13 @@ class FileDataAPI(DataAPI):
 
         return self.get_by_ids(data_point_ids)
 
+    # @timed
     def get_after(self, start_time):
         self._sanity_check(start_time=start_time)
         start_index = self._search_time(start_time)
         data_point_ids = self.time_index[start_index:]
 
         return self.get_by_ids(data_point_ids)
-
-    def _sanity_check(self, start_time=None, end_time=None):
-        all_label = self.get_label(self.all_label)
-        if start_time:
-            latest = all_label.end_time
-            if start_time > latest:
-                lg.warning("no DataPoints after: start_time={0}".format(start_time))
-                return False
-
-        if end_time:
-            earliest = all_label.start_time
-            if end_time < earliest:
-                lg.warning("no DataPoints before: end_time={0}".format(end_time))
-                return False
-        return True
-
-    def _wrap_shelve(self, shelve_handle, wrapper_class):
-        tmp = shelve_handle.items()
-        shelve_handle.close()
-        return wrapper_class(dict(tmp))
 
     @staticmethod
     def _update_shelve(shelve_handle, tmp_dict):
@@ -286,6 +266,12 @@ class FileDataAPI(DataAPI):
         elif issubclass(item.__class__, DataPoint):
             item_name = item.id
             shelve_path = os.path.join(self.data_point_dir, item_name)
+            # shelve_path = os.path.join(self.data_point_dir, item.epoch_ts, item_name)
+            # try:
+            #     os.mkdir(os.path.join(self.data_point_dir, item.epoch_ts))
+            # except OSError as e:
+            #     lg.critical(e)
+            #     return None
         else:
             lg.critical("BAD __class__ TYPE, ABORTING")
             return None, None
@@ -471,3 +457,58 @@ class FileDataAPI(DataAPI):
         #             tmp_file_paths_dict[file_path] = set(indices)
         #
         #     return tmp_file_paths_dict.items()
+
+    def _sanity_check(self, start_time=None, end_time=None):
+        all_label = self.get_label(self.all_label)
+        if start_time:
+            latest = all_label.end_time
+            if start_time > latest:
+                lg.warning("no DataPoints after: start_time={0}".format(start_time))
+                return False
+
+        if end_time:
+            earliest = all_label.start_time
+            if end_time < earliest:
+                lg.warning("no DataPoints before: end_time={0}".format(end_time))
+                return False
+        return True
+
+    def _wrap_shelve(self, shelve_handle, wrapper_class):
+        tmp = shelve_handle.items()
+        shelve_handle.close()
+        return wrapper_class(dict(tmp))
+
+    def _search_time(self, timestamp):
+        """
+
+        :param timestamp:
+        :return:
+        """
+        assert issubclass(timestamp.__class__, datetime.datetime)
+        target = timestamp_to_epoch_ms(timestamp)
+
+        hit = bisect.bisect(self.time_index, target)
+
+        if not hit:
+            return None
+        return hit
+
+    @timed
+    def _update_time_index(self):
+        lg.debug("updating time_index")
+        self.time_index = self._mk_time_index()
+
+    def _mk_time_index(self):
+        tmp_file_names = os.listdir(self.data_point_dir)
+
+        return map(lambda x: float(x[:-10]), tmp_file_names)
+
+    def _mkdirs(self):
+        for directory in self.directories:
+            if not os.path.exists(directory):
+                try:
+                    os.mkdir(directory)
+                except OSError as e:
+                    lg.critical("Unable to use / make specified directory={0}".format(directory))
+                    lg.error(e)
+                    raise OSError

@@ -15,7 +15,7 @@ from .generators import BaseGenerator
 from .readers import BaseReader, H5Reader
 from .watchers import BaseWatcher
 
-data_provider_logger = lg.getLogger('data_providers.main.dataprovdr')
+data_provider_logger = lg.getLogger('data_providers.h5_file_insert.dataprovdr')
 
 
 class BaseDataProvider(ConfigurableObject):
@@ -110,7 +110,7 @@ class FileDataProvider(BaseDataProvider):
             # If you need to swap the order, downsample, or any
             # other last-minute operation, do that here. Given a list of
             # numpy tensors, return a list of numpy tensors.
-            # **NOTE** this is done in the main process.
+            # **NOTE** this is done in the h5_file_insert process.
             'delivery_function': None,
 
             # If the batch should contain the class index tensor and the
