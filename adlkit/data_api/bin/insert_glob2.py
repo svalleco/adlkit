@@ -16,16 +16,6 @@ from adlkit.data_api.utils import file_name_to_timestamp
 
 
 def setup_file_api():
-    #     try:
-    #         os.mkdir(base_dir)
-    #     except OSError:
-    #         pass
-    #
-    #     try:
-    #         os.mkdir(os.path.join(base_dir, label_dir))
-    #     except OSError:
-    #         pass
-
     return FileDataAPI(base_dir)
 
 
