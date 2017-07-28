@@ -1,7 +1,5 @@
 # Data Provider Core
 
-[![build status](https://gitlab.anomalousdl.com/anomalousdl/data_provider_core/badges/master/build.svg)](https://gitlab.anomalousdl.com/anomalousdl/data_provider_core/commits/master)
-
 
 ## Introduction
 This package is designed to provide data to the DNN models of DLKit. The
