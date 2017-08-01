@@ -62,10 +62,8 @@ class BaseGenerator(Worker):
                     with self.shared_memory_pointer[self.last_reader_index][self.last_bucket_index][3].get_lock():
                         self.shared_memory_pointer[self.last_reader_index][self.last_bucket_index][3].value += 1
                 else:
-                    with self.shared_memory_pointer[self.last_reader_index][self.last_bucket_index][
-                        0].get_lock():
-                        self.shared_memory_pointer[self.last_reader_index][self.last_bucket_index][
-                            0].value = 0
+                    with self.shared_memory_pointer[self.last_reader_index][self.last_bucket_index][0].get_lock():
+                        self.shared_memory_pointer[self.last_reader_index][self.last_bucket_index][0].value = 0
 
                 self.debug(
                     "successfully got lock and released buckets last_reader_index={0} last_bucket_index={1}".format(

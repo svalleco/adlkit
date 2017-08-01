@@ -179,7 +179,6 @@ class FileDataProvider(BaseDataProvider):
         self.malloc_requests = list()
         self.extra_malloc_requests = list()
 
-
         if self.config.make_class_index:
             self.extra_malloc_requests.append(
                 ('class_index', tuple())
@@ -197,8 +196,6 @@ class FileDataProvider(BaseDataProvider):
             )
             self.config.translate_col_to_file_name = -1
 
-        # self.file_counter = OrderedDict()
-
         # TODO signal catching
         self.sig1 = signal.getsignal(signal.SIGINT)
         self.sig2 = signal.getsignal(signal.SIGTERM)
@@ -208,8 +205,7 @@ class FileDataProvider(BaseDataProvider):
 
     def process_sample_specification(self, sample_specification):
         self.config.sample_specification = sample_specification
-        self.config.classes, self.config.class_index_map, self.config.data_sets, \
-        self.config.file_index_list = self.build_classes_from_files(
+        self.config.classes, self.config.class_index_map, self.config.data_sets, self.config.file_index_list = self.build_classes_from_files(
             sample_specification)
 
     @staticmethod
@@ -219,9 +215,7 @@ class FileDataProvider(BaseDataProvider):
 
         tmp_class_index_map = dict()
         data_sets = dict()
-        # indices = None
         tmp_file_index_list = list()
-        file_count = 0
 
         for sample in sample_specification:
 
@@ -250,11 +244,6 @@ class FileDataProvider(BaseDataProvider):
 
             tmp_file_index_list.append(file_name)
             file_index = len(tmp_file_index_list) - 1
-            # file_count += 1
-            # try:
-            #     file_index = tmp_file_index[file_name]
-            # except KeyError:
-            #     file_index = tmp_file_index[file_name] = file_count
 
             try:
                 classes[class_name]['file_names'].append(file_index)

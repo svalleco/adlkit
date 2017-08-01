@@ -347,7 +347,8 @@ class TestH5Reader(TestCase):
 
         reader = H5Reader(worker_id=reader_id, in_queue=in_queue, out_queue=out_queue,
                           shared_memory_pointer=shared_data_pointer,
-                          max_batches=max_batches, read_size=read_size,
+                          max_batches=max_batches,
+                          read_size=read_size,
                           class_index_map=mock_class_index_map,
                           make_one_hot=True,
                           make_class_index=True,

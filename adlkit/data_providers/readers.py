@@ -156,7 +156,7 @@ class H5Reader(BaseReader):
                  process_function=None,
                  make_class_index=False,
                  make_one_hot=False,
-                 make_file_struct=False,
+                 make_file_index=False,
                  shuffle=True,
                  cache_handles=False,
                  **kwargs):
@@ -175,7 +175,7 @@ class H5Reader(BaseReader):
         # output switches
         self.make_class_index = make_class_index
         self.make_one_hot = make_one_hot
-        self.make_file_struct = make_file_struct
+        self.make_file_index = make_file_index
         self.shuffle = shuffle
         self.cache_handles = cache_handles
 
@@ -262,9 +262,6 @@ class H5Reader(BaseReader):
             # tmp_file_index = np.full(n_examples, self.class_index_map[class_name])
             # for thing in range(n_examples):
 
-
-            # tmp_file_struct[start:start + n_examples] = tmp_file_index
-
             start += n_examples
 
             if not self.cache_handles:
@@ -294,7 +291,7 @@ class H5Reader(BaseReader):
                                                               len(self.class_index_map))
             payloads['one_hot'] = tmp_one_hot
 
-        if self.make_file_struct:
+        if self.make_file_index:
             payloads['file_struct'] = np.array(tmp_file_struct)
 
         process_time = time.time()

@@ -17,14 +17,15 @@ def generator_output(batch_size=2048, end_count=100, n_readers=20,
                                            n_readers=n_readers,
                                            q_multipler=q_multiplier,
                                            wrap_examples=True,
-                                           read_multiplier=read_multiplier)
+                                           read_multiplier=read_multiplier,
+                                           make_file_index=True)
 
     tmp_data_provider.start()
     count = 0
 
     # spool up time
     for _ in range(10):
-        tmp_data_provider.first().generate().next()
+        this = tmp_data_provider.first().generate().next()
 
     bench_start_time = time.time()
     while count < end_count:

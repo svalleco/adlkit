@@ -1,11 +1,11 @@
-To configure:
+To configure file unpack directory:
 ```bash
 vi ./data_api/config.py
 ```
 
 To run tests:
 ```bash
-bash ./script/test.sh
+pytest
 ```
 
 

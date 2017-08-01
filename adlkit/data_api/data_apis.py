@@ -234,7 +234,7 @@ class FileDataAPI(DataAPI):
             for label in labels:
                 members.update(label.get_members())
 
-            data_point_ids = list(members.union(data_point_ids))
+            data_point_ids = list(members.intersection(data_point_ids))
 
         return self.get_by_ids(data_point_ids)
 

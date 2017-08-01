@@ -1,8 +1,5 @@
 # Data Provider Core
 
-[![build status](https://gitlab.anomalousdl.com/anomalousdl/data_provider_core/badges/master/build.svg)](https://gitlab.anomalousdl.com/anomalousdl/data_provider_core/commits/master)
-
-
 ## Introduction
 This package is designed to provide data to the DNN models of DLKit. The
 `FileDataProvider` class uses python `multiprocessing` to cache disk reads
@@ -97,7 +94,7 @@ default_config = {
             # If you need to swap the order, downsample, or any
             # other last-minute operation, do that here. Given a list of
             # numpy tensors, return a list of numpy tensors.
-            # **NOTE** this is done in the main process.
+            # **NOTE** this is done in the h5_file_insert process.
             'delivery_function': None,
 
             # If the batch should contain the class index tensor and the
@@ -105,12 +102,26 @@ default_config = {
             'make_class_index': False,
             'make_one_hot': False,
 
+            # If the batch should contain a reference to the file+index combo that the data point
+            # came from.
+            'make_file_index': False,
+
             # Not implemented.
             'catch_signals': False,
 
             # This is a race condition catch. Probably not a good idea to
             # disable but may make sense in edge-cases.
-            'wait_for_malloc': True
+            'wait_for_malloc': True,
+
+            # The amount of time a worker should sleep if they are blocked by resource constraints.
+            # This is used with os.sleep so either a float or an int should work.
+            'sleep_duration': 1,
+
+            # If the rows should be shuffled on a per-batch basis.
+            'shuffle': True,
+
+            # If the reader should cache the file handles or close files after reading.
+            'cache_handles': False,
         }
 ```
 
@@ -236,6 +247,5 @@ To run tests:
 
 ```bash
 $ pip install pytest
-$ cd tests
 $ pytest
 ```

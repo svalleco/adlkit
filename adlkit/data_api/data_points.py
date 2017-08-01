@@ -12,7 +12,7 @@ class DataPoint(object):
 
     timestamp = None
     id = None
-    _source = None
+    _origin = None
 
     def __init__(self, init_item=None):
         """
@@ -42,7 +42,7 @@ class DataPoint(object):
         self.from_dict(dict(tmp))
 
     def from_dict(self, init_dict):
-        self._source = copy.deepcopy(init_dict)
+        self._origin = copy.deepcopy(init_dict)
         for key, value in init_dict.items():
             setattr(self, key, value)
 
