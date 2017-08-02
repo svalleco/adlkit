@@ -49,7 +49,7 @@ class TestFileDataProvider(TestCase):
         tmp_data_provider.start_queues()
         tmp_data_provider.start_filler(H5Filler)
 
-        tmp_data_provider.wait_for_malloc_requests()
+
         tmp_data_provider.process_malloc_requests()
 
         for request, expected_request in zip(tmp_data_provider.malloc_requests,
@@ -112,7 +112,7 @@ class TestFileDataProvider(TestCase):
         tmp_data_provider.start_queues()
         tmp_data_provider.start_filler(H5Filler)
 
-        tmp_data_provider.wait_for_malloc_requests()
+        tmp_data_provider.process_malloc_requests()
 
         tmp_data_provider.worker_count = worker_id = 1
 
@@ -426,7 +426,6 @@ class TestFileDataProvider(TestCase):
         tmp_data_provider.start_filler(H5Filler)
 
         tmp_data_provider.process_malloc_requests()
-        tmp_data_provider.wait_for_malloc_requests()
 
         tmp_data_provider.start_reader(H5Reader)
 
