@@ -287,20 +287,19 @@ class FileDataProvider(BaseDataProvider):
             message = " ".join(message)
         data_provider_logger.info(" dtprvd_id=1 " + message)
 
-    def process_malloc_requests(self, timeout=1):
-        while True:
-            try:
-                malloc_request = self.malloc_queue.get(timeout=timeout)
-            except Queue.Empty:
-                break
+    def process_malloc_requests(self):
+        malloc_wait_time = time.time()
 
-            for index, request in self.malloc_requests:
-                if request[0] == malloc_request[0]:
-                    self.malloc_requests[index] = malloc_request
-                    malloc_request = None
+        malloc_requests = self.malloc_queue.get()
 
-            if malloc_request is not None:
-                self.malloc_requests.append(malloc_request)
+        # for index, request in self.malloc_requests:
+        #     if request[0] == malloc_request[0]:
+        #         self.malloc_requests[index] = malloc_request
+        #         malloc_request = None
+
+        if malloc_requests is not None:
+            self.malloc_requests.extend(malloc_requests)
+        self.info("malloc_wait_time={0}".format(time.time() - malloc_wait_time))
 
     def make_shared_malloc(self, in_reader_id):
         """
@@ -345,13 +344,12 @@ class FileDataProvider(BaseDataProvider):
 
                 self.shared_memory[reader_id] = buckets
 
-    def wait_for_malloc_requests(self):
-        malloc_wait_time = time.time()
-        # TODO better logic is needed to determine when to hard_stop waiting, data set naming is weird
-        while len(self.config.data_sets) > len(
-                self.malloc_requests) and not self.should_stop():
-            self.process_malloc_requests(timeout=1)
-        self.info("malloc_wait_time={0}".format(time.time() - malloc_wait_time))
+    # def wait_for_malloc_requests(self):
+    #     malloc_wait_time = time.time()
+    #     # TODO better logic is needed to determine when to hard_stop waiting, data set naming is weird
+    #     while len(self.config.data_sets) > len(self.malloc_requests) and not self.should_stop():
+    #         self.process_malloc_requests(timeout=1)
+
 
     def start(self, filler_class, reader_class, generator_class,
               watcher_class=None, shape_reader_class=None, **kwargs):
@@ -376,8 +374,9 @@ class FileDataProvider(BaseDataProvider):
 
         self.start_filler(filler_class, shape_reader_class=shape_reader_class,
                           **kwargs)
-        if self.config.wait_for_malloc:
-            self.wait_for_malloc_requests()
+        # if self.config.wait_for_malloc:
+        #     self.wait_for_malloc_requests()
+        self.process_malloc_requests()
         self.make_shared_malloc(range(self.config.n_readers))
 
         try:

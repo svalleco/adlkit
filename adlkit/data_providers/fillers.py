@@ -156,47 +156,69 @@ class H5Filler(BaseFiller):
         self.file_index_list = file_index_list
         self.file_counter = OrderedDict()
 
+        self.report = True
+
     # def reset(self):
     #     return
 
-    def inform_data_provider(self, data_set, batch):
-
-        self.data_set_tracker[data_set] = True
+    def inform_data_provider(self, data_sets, batch):
+        malloc_requests = list()
         if self.shape_reader is None:
+            ruler_data_set = data_sets[0]
+
             file_name = self.file_index_list[batch[0][0]]
             if file_name in self.file_handle_holder:
                 h5_file_handle = self.file_handle_holder[file_name]
             else:
                 h5_file_handle = self.file_handle_holder[file_name] = h5py.File(file_name, 'r')
 
-            shape = h5_file_handle[data_set][0].shape
+            shape = h5_file_handle[ruler_data_set][0].shape
 
-            while True:
-                try:
-                    self.malloc_queue.put((data_set, shape))
-                    break
-                except Queue.Full:
-                    pass
-            self.debug(
-                "informing data provider of new data_set `{0}` of shape `{1}`".format(data_set,
-                                                                                      shape))
+            for data_set in data_sets:
+                malloc_requests.append((data_set, shape))
 
         else:
             payloads = self.shape_reader.process_batch(batch, store_in_shared=False)
             for item_index, item in enumerate(payloads):
                 shape = item.shape[1:]
-                name = '{0}_{1}'.format(data_set, item_index)
-                while True:
-                    try:
-                        self.malloc_queue.put((name, shape))
-                        break
-                    except Queue.Full:
-                        pass
-                self.debug(
-                    "informing data provider of new data_set `{0}` of shape `{1}`".format(name,
-                                                                                          shape))
+                name = 'inferred_{}'.format(item_index)
+                malloc_requests.append((name, shape))
 
-        self.data_set_tracker[data_set] = True
+
+        while True:
+            try:
+                self.malloc_queue.put(malloc_requests)
+                break
+            except Queue.Full:
+                pass
+        self.debug("informing data provider of malloc shapes `{0}`".format(malloc_requests))
+        self.report = False
+        # self.data_set_tracker[data_set] = True
+        # if self.shape_reader is None:
+        #     file_name = self.file_index_list[batch[0][0]]
+        #     if file_name in self.file_handle_holder:
+        #         h5_file_handle = self.file_handle_holder[file_name]
+        #     else:
+        #         h5_file_handle = self.file_handle_holder[file_name] = h5py.File(file_name, 'r')
+        #
+        #     shape = h5_file_handle[data_set][0].shape
+        #
+        #
+        #
+        # else:
+
+        #
+        #         while True:
+        #             try:
+        #                 self.malloc_queue.put((name, shape))
+        #                 break
+        #             except Queue.Full:
+        #                 pass
+        #         self.debug(
+        #             "informing data provider of new data_set `{0}` of shape `{1}`".format(name,
+        #                                                                                   shape))
+        #
+        # self.data_set_tracker[data_set] = True
 
     def compute_probability(self):
         """
@@ -261,10 +283,13 @@ class H5Filler(BaseFiller):
                     # with h5py.File(file_name, 'r') as h5_file_handle:
 
                     for data_set in tmp_class_holder['data_set_names']:
-                        abridged_data_set = data_set.split('/')[0]
-                        if not self.data_set_tracker[abridged_data_set]:
-                            tmp_data_set_tracker.append(abridged_data_set)
+                        #     abridged_data_set = data_set.split('/')[0]
+                        #     if not self.data_set_tracker[abridged_data_set]:
+                        #         tmp_data_set_tracker.append(abridged_data_set)
 
+                        # tmp_data_set_tracker.add(data_set)
+                        if data_set not in tmp_data_set_tracker:
+                            tmp_data_set_tracker.append(data_set)
                     # TODO implement the assert
                     # tmp_list = map(lambda key: h5_file_handle[key].shape[0], self.data_set_tracker)
                     #
@@ -344,13 +369,14 @@ class H5Filler(BaseFiller):
         for class_name in self.classes:
             self.classes[class_name]['n_examples'] = 0
 
-        for data_set in tmp_data_set_tracker:
-            if not self.data_set_tracker[data_set]:
-                # tmp_data_set_holder = tmp_data_set_tracker[data_set].keys()
-                # if tmp_data_set_holder[0] != data_set:
-                # tmp_data_set_holder = tmp_data_set_tracker[data_set].keys()
-                # print('FILLER_BATCH', batch)
-                self.inform_data_provider(data_set, batch)
+        if self.report:
+            self.inform_data_provider(tmp_data_set_tracker, batch)
+            # for data_set in tmp_data_set_tracker:
+            #     if not self.data_set_tracker[data_set]:
+            # tmp_data_set_holder = tmp_data_set_tracker[data_set].keys()
+            # if tmp_data_set_holder[0] != data_set:
+            # tmp_data_set_holder = tmp_data_set_tracker[data_set].keys()
+            # print('FILLER_BATCH', batch)
 
         return batch
 
