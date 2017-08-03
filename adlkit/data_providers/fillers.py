@@ -53,9 +53,6 @@ class BaseFiller(Worker):
 
         self.debug("starting...")
 
-        # while not self.should_stop() or (self.max_batches is not None and batch_count < self.max_batches):
-        # while not self.should_stop() or (
-        #         self.max_batches is not None and self.batch_count >= self.max_batches):
         while not self.should_stop() and (
                         self.max_batches is None or self.batch_count < self.max_batches):
 
@@ -83,14 +80,11 @@ class BaseFiller(Worker):
                     self.debug("in_queue is full, sleeping")
                     self.sleep()
 
-            # self.info("batch_fill_time={0} in_queue_put_wait_time={1} in_queue_size={2}".format(time.time() - start_time, time.time() - in_queue_put_wait_time,
-            #                                                                                     self.in_queue.qsize()))
             self.info(
                 "batch_fill_time={0} in_queue_put_wait_time={1}".format(time.time() - start_time,
                                                                         time.time() - in_queue_put_wait_time))
             self.batch_count += 1
 
-            # time.sleep(self.sleep_duration)
         self.debug("exiting...")
         self.seppuku()
 
@@ -158,9 +152,6 @@ class H5Filler(BaseFiller):
 
         self.report = True
 
-    # def reset(self):
-    #     return
-
     def inform_data_provider(self, data_sets, batch):
         malloc_requests = list()
         if self.shape_reader is None:
@@ -184,7 +175,6 @@ class H5Filler(BaseFiller):
                 name = 'inferred_{}'.format(item_index)
                 malloc_requests.append((name, shape))
 
-
         while True:
             try:
                 self.malloc_queue.put(malloc_requests)
@@ -193,32 +183,6 @@ class H5Filler(BaseFiller):
                 pass
         self.debug("informing data provider of malloc shapes `{0}`".format(malloc_requests))
         self.report = False
-        # self.data_set_tracker[data_set] = True
-        # if self.shape_reader is None:
-        #     file_name = self.file_index_list[batch[0][0]]
-        #     if file_name in self.file_handle_holder:
-        #         h5_file_handle = self.file_handle_holder[file_name]
-        #     else:
-        #         h5_file_handle = self.file_handle_holder[file_name] = h5py.File(file_name, 'r')
-        #
-        #     shape = h5_file_handle[data_set][0].shape
-        #
-        #
-        #
-        # else:
-
-        #
-        #         while True:
-        #             try:
-        #                 self.malloc_queue.put((name, shape))
-        #                 break
-        #             except Queue.Full:
-        #                 pass
-        #         self.debug(
-        #             "informing data provider of new data_set `{0}` of shape `{1}`".format(name,
-        #                                                                                   shape))
-        #
-        # self.data_set_tracker[data_set] = True
 
     def compute_probability(self):
         """
@@ -268,11 +232,6 @@ class H5Filler(BaseFiller):
                     self.debug(['Opening:', class_name, str(tmp_class_holder['file_index']),
                                 file_name])
 
-                    # if not os.path.isfile(
-                    #         os.path.abspath(tmp_class_holder['file_names'][tmp_class_holder['file_index']])):
-                    #     self.debug("skipping {0}".format(tmp_class_holder['file_names'][tmp_class_holder['file_index']]))
-                    #     continue
-
                     # TODO make a switch that can either use `with` or self.file_handle_holder
                     if file_name in self.file_handle_holder:
                         h5_file_handle = self.file_handle_holder[file_name]
@@ -280,19 +239,11 @@ class H5Filler(BaseFiller):
                         h5_file_handle = self.file_handle_holder[file_name] = h5py.File(file_name,
                                                                                         'r')
 
-                    # with h5py.File(file_name, 'r') as h5_file_handle:
-
                     for data_set in tmp_class_holder['data_set_names']:
-                        #     abridged_data_set = data_set.split('/')[0]
-                        #     if not self.data_set_tracker[abridged_data_set]:
-                        #         tmp_data_set_tracker.append(abridged_data_set)
-
-                        # tmp_data_set_tracker.add(data_set)
                         if data_set not in tmp_data_set_tracker:
                             tmp_data_set_tracker.append(data_set)
+
                     # TODO implement the assert
-                    # tmp_list = map(lambda key: h5_file_handle[key].shape[0], self.data_set_tracker)
-                    #
                     # assert (sum(tmp_list) != len(tmp_list) * tmp_list[0],
                     #         "{0} has datasets with mismatched tensor shapes".format(file_name))
 
@@ -354,29 +305,11 @@ class H5Filler(BaseFiller):
                 else:
                     tmp_class_holder['example_index'] = end_index
 
-                    # #############################################
-                    # Checking to ensure the path is a file and it exists!
-                    # with h5py.File(file_name_path, 'r') as h5_file_handle:
-                    #     tmp_list = map(lambda key: h5_file_handle[key].shape[0], self.list_of_data_sets)
-                    #
-                    #     assert (sum(tmp_list) != len(tmp_list) * tmp_list[0],
-                    #             "{0} has datasets with mismatched tensor shapes".format(file_name_path))
-                    #
-                    #     if self.events_considered + tmp_list[0] < self.skip:
-                    #         self.events_considered += tmp_list[0]
-                    #         continue
-
         for class_name in self.classes:
             self.classes[class_name]['n_examples'] = 0
 
         if self.report:
             self.inform_data_provider(tmp_data_set_tracker, batch)
-            # for data_set in tmp_data_set_tracker:
-            #     if not self.data_set_tracker[data_set]:
-            # tmp_data_set_holder = tmp_data_set_tracker[data_set].keys()
-            # if tmp_data_set_holder[0] != data_set:
-            # tmp_data_set_holder = tmp_data_set_tracker[data_set].keys()
-            # print('FILLER_BATCH', batch)
 
         return batch
 
