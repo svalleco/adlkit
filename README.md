@@ -1,7 +1,8 @@
 **Please read the `LICENSE.txt` before use.**
 
 # ADLKit
-*Powered by AnomalousDL*
+
+[![Join the chat at https://gitter.im/anomalousdl/adlkit](https://badges.gitter.im/anomalousdl/adlkit.svg)](https://gitter.im/anomalousdl/adlkit?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 ### What is ADLKit?
 *A library that makes deep learning easy...*

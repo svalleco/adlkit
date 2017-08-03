@@ -1,7 +1,9 @@
 # Data Provider Core
 
+=======
+
 ## Introduction
-This package is designed to provide data to the DNN models of DLKit. The
+This package is designed to provide data to the DNN models of ADLKit. The
 `FileDataProvider` class uses python `multiprocessing` to cache disk reads
 via sub-process in order to deliver data quickly to the main process.
 
@@ -212,7 +214,7 @@ read the data. Problems may arise if the generators are not consuming at
 the same pace, in which case your slowest generator will set the pace for
 everyone.
 
-To activate the `Watcher`, simple include the `Watcher` class to use as
+To activate the `Watcher`, simply include the `Watcher` class to use as
 part of the `DataProvider.start` function.
 
 #### Generators
@@ -236,7 +238,7 @@ for thing in tmp_data_provider.first().generate()
 
 **OR** to use an explicit generator:
 
-```
+```python
 for thing in tmp_data_provider.generators[$GENERATOR_ID].generate()
 ```
 
