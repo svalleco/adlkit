@@ -9,6 +9,7 @@ out
 data/
 logs/
 *.pyc
+tmp
 
 gen### Python template
 # Byte-compiled / optimized / DLL files

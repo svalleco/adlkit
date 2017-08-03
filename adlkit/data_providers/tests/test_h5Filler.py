@@ -89,7 +89,7 @@ class TestH5Filler(TestCase):
                 pass
             finally:
                 if malloc_request is not None:
-                    out.append(malloc_request)
+                    out.extend(malloc_request)
 
         for request, expected_request in zip(out,
                                              mock_expected_malloc_requests):

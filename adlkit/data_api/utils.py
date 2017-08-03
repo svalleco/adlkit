@@ -3,7 +3,7 @@ from __future__ import absolute_import
 import os
 import time
 from datetime import datetime
-
+import logging as lg
 
 def file_name_to_epoch_time(file_name):
     """
@@ -33,6 +33,35 @@ def epoch_time_to_file_name(date_time):
                                             str(tmp.second).zfill(2))
 
 
-def timestamp_to_epoch(timestamp):
+def timestamp_to_epoch(timestamp, out_type=int):
     assert isinstance(timestamp, datetime)
-    return int(time.mktime(timestamp.timetuple()))
+    return out_type(time.mktime(timestamp.timetuple()))
+
+
+# sourced from
+# https://stackoverflow.com/questions/6999726/how-can-i-convert-a-datetime-object-to-milliseconds-since-epoch-unix-time-in-p
+epoch = datetime.utcfromtimestamp(0)
+
+
+def timestamp_to_epoch_ms(dt):
+    return (dt - epoch).total_seconds() * 1000.0
+
+
+def epoch_ms_to_timestamp(epoch_ms):
+    return datetime.utcfromtimestamp(epoch_ms / 1000.0)
+
+
+def file_name_to_timestamp(file_name):
+    epoch_time = file_name_to_epoch_time(file_name)
+    return epoch_ms_to_timestamp(epoch_time * 1000)
+
+
+def timed(target_function):
+    def wrapper(*args, **kwargs):
+        start = time.time()
+        out = target_function(*args, **kwargs)
+        end = time.time()
+        lg.info("func={0} delta={1}".format(target_function.__name__, end - start))
+
+        return out
+    return wrapper

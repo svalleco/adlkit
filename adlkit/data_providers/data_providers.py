@@ -110,7 +110,7 @@ class FileDataProvider(BaseDataProvider):
             # If you need to swap the order, downsample, or any
             # other last-minute operation, do that here. Given a list of
             # numpy tensors, return a list of numpy tensors.
-            # **NOTE** this is done in the main process.
+            # **NOTE** this is done in the h5_file_insert process.
             'delivery_function': None,
 
             # If the batch should contain the class index tensor and the
@@ -179,7 +179,6 @@ class FileDataProvider(BaseDataProvider):
         self.malloc_requests = list()
         self.extra_malloc_requests = list()
 
-
         if self.config.make_class_index:
             self.extra_malloc_requests.append(
                 ('class_index', tuple())
@@ -197,8 +196,6 @@ class FileDataProvider(BaseDataProvider):
             )
             self.config.translate_col_to_file_name = -1
 
-        # self.file_counter = OrderedDict()
-
         # TODO signal catching
         self.sig1 = signal.getsignal(signal.SIGINT)
         self.sig2 = signal.getsignal(signal.SIGTERM)
@@ -208,8 +205,7 @@ class FileDataProvider(BaseDataProvider):
 
     def process_sample_specification(self, sample_specification):
         self.config.sample_specification = sample_specification
-        self.config.classes, self.config.class_index_map, self.config.data_sets, \
-        self.config.file_index_list = self.build_classes_from_files(
+        self.config.classes, self.config.class_index_map, self.config.data_sets, self.config.file_index_list = self.build_classes_from_files(
             sample_specification)
 
     @staticmethod
@@ -219,9 +215,7 @@ class FileDataProvider(BaseDataProvider):
 
         tmp_class_index_map = dict()
         data_sets = dict()
-        # indices = None
         tmp_file_index_list = list()
-        file_count = 0
 
         for sample in sample_specification:
 
@@ -250,11 +244,6 @@ class FileDataProvider(BaseDataProvider):
 
             tmp_file_index_list.append(file_name)
             file_index = len(tmp_file_index_list) - 1
-            # file_count += 1
-            # try:
-            #     file_index = tmp_file_index[file_name]
-            # except KeyError:
-            #     file_index = tmp_file_index[file_name] = file_count
 
             try:
                 classes[class_name]['file_names'].append(file_index)
@@ -298,20 +287,19 @@ class FileDataProvider(BaseDataProvider):
             message = " ".join(message)
         data_provider_logger.info(" dtprvd_id=1 " + message)
 
-    def process_malloc_requests(self, timeout=1):
-        while True:
-            try:
-                malloc_request = self.malloc_queue.get(timeout=timeout)
-            except Queue.Empty:
-                break
+    def process_malloc_requests(self):
+        malloc_wait_time = time.time()
 
-            for index, request in self.malloc_requests:
-                if request[0] == malloc_request[0]:
-                    self.malloc_requests[index] = malloc_request
-                    malloc_request = None
+        malloc_requests = self.malloc_queue.get()
 
-            if malloc_request is not None:
-                self.malloc_requests.append(malloc_request)
+        # for index, request in self.malloc_requests:
+        #     if request[0] == malloc_request[0]:
+        #         self.malloc_requests[index] = malloc_request
+        #         malloc_request = None
+
+        if malloc_requests is not None:
+            self.malloc_requests.extend(malloc_requests)
+        self.info("malloc_wait_time={0}".format(time.time() - malloc_wait_time))
 
     def make_shared_malloc(self, in_reader_id):
         """
@@ -356,13 +344,12 @@ class FileDataProvider(BaseDataProvider):
 
                 self.shared_memory[reader_id] = buckets
 
-    def wait_for_malloc_requests(self):
-        malloc_wait_time = time.time()
-        # TODO better logic is needed to determine when to hard_stop waiting, data set naming is weird
-        while len(self.config.data_sets) > len(
-                self.malloc_requests) and not self.should_stop():
-            self.process_malloc_requests(timeout=1)
-        self.info("malloc_wait_time={0}".format(time.time() - malloc_wait_time))
+    # def wait_for_malloc_requests(self):
+    #     malloc_wait_time = time.time()
+    #     # TODO better logic is needed to determine when to hard_stop waiting, data set naming is weird
+    #     while len(self.config.data_sets) > len(self.malloc_requests) and not self.should_stop():
+    #         self.process_malloc_requests(timeout=1)
+
 
     def start(self, filler_class, reader_class, generator_class,
               watcher_class=None, shape_reader_class=None, **kwargs):
@@ -387,8 +374,9 @@ class FileDataProvider(BaseDataProvider):
 
         self.start_filler(filler_class, shape_reader_class=shape_reader_class,
                           **kwargs)
-        if self.config.wait_for_malloc:
-            self.wait_for_malloc_requests()
+        # if self.config.wait_for_malloc:
+        #     self.wait_for_malloc_requests()
+        self.process_malloc_requests()
         self.make_shared_malloc(range(self.config.n_readers))
 
         try:
