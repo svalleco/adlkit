@@ -15,7 +15,7 @@ from .generators import BaseGenerator
 from .readers import BaseReader, H5Reader
 from .watchers import BaseWatcher
 
-data_provider_logger = lg.getLogger('data_providers.h5_file_insert.dataprovdr')
+data_provider_logger = lg.getLogger('data_providers.main.dataprovdr')
 
 
 class BaseDataProvider(ConfigurableObject):
