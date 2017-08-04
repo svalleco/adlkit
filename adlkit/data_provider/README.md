@@ -1,11 +1,10 @@
 # Data Provider Core
 
-=======
-
 ## Introduction
 This package is designed to provide data to the DNN models of ADLKit. The
-`FileDataProvider` class uses python `multiprocessing` to cache disk reads
-via sub-process in order to deliver data quickly to the main process.
+ `FileDataProvider` class uses python `multiprocessing` and `numpy` to
+ cache disk reads via sub-process(es) in order to deliver data quickly
+ to the calling process through a python `generator`.
 
 
 ## Examples
@@ -13,16 +12,10 @@ via sub-process in order to deliver data quickly to the main process.
 ```python
 
 # Instantiate the DataProvider with non-default variables
-tmp_data_provider = H5FileDataProvider(mock_sample_specification,
-                                       batch_size=batch_size,
-                                       n_readers=n_readers,
-                                       q_multipler=q_multiplier,
-                                       wrap_examples=True,
-                                       read_multiplier=read_multiplier)
+tmp_data_provider = H5FileDataProvider(sample_specification)
 
-# Allocate memory and start sub-processes
+# Allocate memory and start sub-process(es)
 tmp_data_provider.start()
-count = 0
 
 for _ in range(10):
         thing = tmp_data_provider.first().generate().next()

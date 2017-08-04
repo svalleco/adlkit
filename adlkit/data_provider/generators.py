@@ -5,9 +5,7 @@ import time
 from .config import GENERATOR_OFFSET
 from .workers import Worker
 
-# lg.basicConfig(level=lg.INFO)
-
-generator_logger = lg.getLogger('data_providers.h5_file_insert.generators')
+generator_logger = lg.getLogger('data_provider.h5_file_insert.generators')
 
 
 class BaseGenerator(Worker):
@@ -40,30 +38,30 @@ class BaseGenerator(Worker):
         if isinstance(message, list):
             message = " ".join(message)
         generator_logger.debug(" genera_id={0} ".format(self.worker_id) + message)
-        # super(BaseGenerator, self).debug(" :GENERATOR #{0}: ".format(self.generator_id) + message)
 
     def info(self, message):
         if isinstance(message, list):
             message = " ".join(message)
         generator_logger.info(" genera_id={0} ".format(self.worker_id, self.batch_count) + message)
-        # super(BaseGenerator, self).debug(" :GENERATOR #{0}: ".format(self.generator_id) + message)
 
     def generate(self):
         self.batch_count = 0
 
-        # while not self.should_stop() or (self.max_batches is not None and count == self.max_batches):
-        # while not self.should_stop() and (self.max_batches is None or self.batch_count < self.max_batches):
         while not self.should_stop() or (
                         self.max_batches is not None and self.batch_count >= self.max_batches):
             # Cleaning up
             if self.last_reader_index is not None and self.last_bucket_index is not None:
                 self.debug("attempting to get lock to release buckets")
                 if self.watched:
-                    with self.shared_memory_pointer[self.last_reader_index][self.last_bucket_index][3].get_lock():
-                        self.shared_memory_pointer[self.last_reader_index][self.last_bucket_index][3].value += 1
+                    with self.shared_memory_pointer[self.last_reader_index][self.last_bucket_index][
+                        3].get_lock():
+                        self.shared_memory_pointer[self.last_reader_index][self.last_bucket_index][
+                            3].value += 1
                 else:
-                    with self.shared_memory_pointer[self.last_reader_index][self.last_bucket_index][0].get_lock():
-                        self.shared_memory_pointer[self.last_reader_index][self.last_bucket_index][0].value = 0
+                    with self.shared_memory_pointer[self.last_reader_index][self.last_bucket_index][
+                        0].get_lock():
+                        self.shared_memory_pointer[self.last_reader_index][self.last_bucket_index][
+                            0].value = 0
 
                 self.debug(
                     "successfully got lock and released buckets last_reader_index={0} last_bucket_index={1}".format(
@@ -113,19 +111,12 @@ class BaseGenerator(Worker):
                                         self.max_batches is not None and self.batch_count == self.max_batches):
                             raise StopIteration
 
-                        # batch = np.take(copy_of_payload, [range(batch_index, batch_index + self.batch_size)], axis=1)
-
                         self.debug("attempting to deliver a batch")
                         yield_wait_time = time.time()
 
                         if self.translate_col_to_file_name:
                             tmp_list = map(lambda x: [self.file_index_list[int(x[0])], int(x[1])],
                                            batch[self.translate_col_to_file_name])
-
-                            # tmp_list = list()
-                            # for index, item in enumerate(batch[self.translate_col_to_file_name]):
-                            #     file_name = self.file_index_list[int(item[0])]
-                            #     tmp_list.append([file_name, int(item[1])])
 
                             batch[self.translate_col_to_file_name] = tmp_list
 

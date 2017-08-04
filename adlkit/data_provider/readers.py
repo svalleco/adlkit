@@ -12,7 +12,7 @@ from .workers import Worker
 
 # lg.basicConfig(level=lg.INFO)
 
-reader_logger = lg.getLogger('data_providers.workers.readers')
+reader_logger = lg.getLogger('data_provider.workers.readers')
 
 
 class BaseReader(Worker):

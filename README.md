@@ -17,17 +17,34 @@ for a framework that combines all of these great tools together to
 make it easier than ever to dive into scalable Deep Learning without
 the hassle of looking under the hood.
 
-### Installation
+### Installation:
 
-1. Clone the repository.
+_Tested on Python 2.7.13_
+
+###### Assumptions
+- `Python` == 2.7.X
+- `pip` >= [9.0.X](https://pip.pypa.io/en/stable/installing/)
+- `git`
+
+###### Procedure
+1. Clone this repository:
     ```bash
     git clone https://github.com/anomalousdl/adlkit
     ```
-2. Use pip ~~or setuptools~~ to install the package.
+
+3. (Optional) Setup a python virtual environment:
+   ```bash
+   pip install virtualenvwrapper
+   source /usr/local/bin/virtualenvwrapper.sh
+   mkvirtualenv workspace
+   workon workspace
+   ```
+
+3. Use pip to install the package .
     ```bash
     pip install -e ./adlkit
     ```
 
 ### More Info
-  - `adlkit/data_providers/README.md`
-  - `adlkit/data_api/README.md`
+  - `adlkit/data_provider/README.md`
+  - `adlkit/data_catalog/README.md`

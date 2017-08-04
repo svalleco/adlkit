@@ -5,7 +5,7 @@ import logging as lg
 
 from .config import STOP_MESSAGE
 
-worker_log = lg.getLogger('data_providers.workers.worker')
+worker_log = lg.getLogger('data_provider.workers.worker')
 
 
 class WorkerError(Exception):

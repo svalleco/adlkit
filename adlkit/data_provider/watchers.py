@@ -5,7 +5,7 @@ import logging as lg
 from .config import WATCHER_OFFSET
 from .workers import Worker
 
-watcher_logger = lg.getLogger('data_providers.workers.watcher')
+watcher_logger = lg.getLogger('data_provider.workers.watcher')
 
 
 class BaseWatcher(Worker):

@@ -9,7 +9,7 @@ import h5py
 from .config import FILLER_OFFSET, RANDOM
 from .workers import Worker
 
-filler_logger = lg.getLogger('data_providers.workers.fillers')
+filler_logger = lg.getLogger('data_provider.workers.fillers')
 
 
 class BaseFiller(Worker):
