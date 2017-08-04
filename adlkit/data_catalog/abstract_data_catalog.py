@@ -12,6 +12,10 @@ class AbstractDataCatalog(object):
         pass
 
     @abstractmethod
+    def save_label(self, label):
+        pass
+
+    @abstractmethod
     def save_data_point(self, data_point):
         pass
 

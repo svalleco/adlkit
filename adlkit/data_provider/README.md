@@ -1,9 +1,5 @@
 # DataProvider
 
-```
-__maintainer__ = "W. Grayson Hilliard"
-```
-
 ## Introduction
 This package is designed to provide data to the DNN models of ADLKit. The
  `FileDataProvider` class uses python `multiprocessing` and `numpy` to

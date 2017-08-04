@@ -99,7 +99,8 @@ class FileDataCatalog(AbstractDataCatalog):
 
     suffix = None
 
-    def __init__(self, base_dir, label_dir=None, consolidate=True, suffix=None):
+    def __init__(self, base_dir, label_dir=None, data_point_dir=None, consolidate=True,
+                 suffix=None):
         """
 
         :param base_dir: '/some/top/level/path'
@@ -113,7 +114,7 @@ class FileDataCatalog(AbstractDataCatalog):
 
         self.base_dir = os.path.abspath(base_dir)
         self.label_dir = os.path.join(self.base_dir, label_dir or 'labels')
-        self.data_point_dir = os.path.join(self.base_dir, 'data_points')
+        self.data_point_dir = os.path.join(self.base_dir, data_point_dir or 'data_points')
 
         self.directories = [self.base_dir, self.label_dir, self.data_point_dir]
         self._mkdirs()

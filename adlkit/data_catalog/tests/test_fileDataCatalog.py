@@ -9,15 +9,24 @@ class TestFileDataCatalog(TestCase):
     tmp_label = None
     tmp_data_point = None
 
-    @classmethod
-    def setUpClass(cls):
-        cls.tmp_api = FileDataCatalog('./tmp')
-        cls.tmp_label = Label({'name': 'thing'})
-        cls.tmp_data_point = BaseDataPoint({'glip': 'glop'})
+    # @classmethod
+    # def setUpClass(cls):
+    #     cls.tmp_api = FileDataCatalog('./tmp')
+    #     cls.tmp_label = Label({'name': 'thing'})
+    #     cls.tmp_data_point = BaseDataPoint({'glip': 'glop'})
+    #
+    # @classmethod
+    # def tearDownClass(cls):
+    #     cls.tmp_api.purge()
 
-    @classmethod
-    def tearDownClass(cls):
-        cls.tmp_api.purge()
+    def setUp(self):
+        self.tmp_api = FileDataCatalog('./tmp')
+        self.tmp_label = Label({'name': 'thing'})
+        self.tmp_data_point = BaseDataPoint({'glip': 'glop'})
+
+    def tearDown(self):
+        self.tmp_api.purge()
+        # self.tmp_api._mkdirs()
 
     def test_save_label(self):
         value = self.tmp_api.save_label(self.tmp_label)
