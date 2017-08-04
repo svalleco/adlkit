@@ -1,9 +1,10 @@
 from __future__ import absolute_import
 
+import logging as lg
 import os
 import time
 from datetime import datetime
-import logging as lg
+
 
 def file_name_to_epoch_time(file_name):
     """
@@ -64,4 +65,5 @@ def timed(target_function):
         lg.info("func={0} delta={1}".format(target_function.__name__, end - start))
 
         return out
+
     return wrapper

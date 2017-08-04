@@ -9,11 +9,11 @@ import logging as lg
 import os
 from unittest import TestCase
 
-from adlkit.data_providers.data_providers import FileDataProvider
-from adlkit.data_providers.fillers import H5Filler
-from adlkit.data_providers.generators import BaseGenerator
-from adlkit.data_providers.readers import H5Reader
-from adlkit.data_providers.watchers import BaseWatcher
+from adlkit.data_provider.data_providers import FileDataProvider
+from adlkit.data_provider.fillers import H5Filler
+from adlkit.data_provider.generators import BaseGenerator
+from adlkit.data_provider.readers import H5Reader
+from adlkit.data_provider.watchers import BaseWatcher
 
 lg.basicConfig(level=lg.INFO, format='%(asctime)s %(levelname)s %(name)s %(message)s ')
 test_logger = lg.getLogger('data_providers.tests')
@@ -23,7 +23,7 @@ sleep_duration = None
 
 class TestFileDataProvider(TestCase):
     def process_sample_specification(self):
-        from adlkit.data_providers.tests.mock_config import mock_sample_specification
+        from adlkit.data_provider.tests.mock_config import mock_sample_specification
         mock_sample_specification = copy.deepcopy(mock_sample_specification)
 
         tmp_data_provider = FileDataProvider(mock_sample_specification,
@@ -35,7 +35,7 @@ class TestFileDataProvider(TestCase):
         self.assertEqual(len(tmp_data_provider.config.class_index_map), 3)
 
     def test_process_malloc_requests(self):
-        from adlkit.data_providers.tests.mock_config import mock_sample_specification, \
+        from adlkit.data_provider.tests.mock_config import mock_sample_specification, \
             mock_expected_malloc_requests
         mock_sample_specification = copy.deepcopy(mock_sample_specification)
         mock_expected_malloc_requests = copy.deepcopy(
@@ -57,7 +57,7 @@ class TestFileDataProvider(TestCase):
             self.assertEqual(request, expected_request)
 
     def test_make_shared_malloc(self):
-        from adlkit.data_providers.tests.mock_config import mock_sample_specification, \
+        from adlkit.data_provider.tests.mock_config import mock_sample_specification, \
             mock_expected_malloc_requests
         mock_sample_specification = copy.deepcopy(mock_sample_specification)
         mock_expected_malloc_requests = copy.deepcopy(
@@ -96,7 +96,7 @@ class TestFileDataProvider(TestCase):
             "shared memory shape doesn't match")
 
     def test_filler_to_malloc(self):
-        from adlkit.data_providers.tests.mock_config import mock_sample_specification, \
+        from adlkit.data_provider.tests.mock_config import mock_sample_specification, \
             mock_expected_malloc_requests
         mock_sample_specification = copy.deepcopy(mock_sample_specification)
         mock_expected_malloc_requests = copy.deepcopy(
@@ -157,7 +157,7 @@ class TestFileDataProvider(TestCase):
             "shared memory shape doesn't match")
 
     def test_start_filler(self):
-        from adlkit.data_providers.tests.mock_config import mock_sample_specification
+        from adlkit.data_provider.tests.mock_config import mock_sample_specification
         mock_sample_specification = copy.deepcopy(mock_sample_specification)
 
         tmp_data_provider = FileDataProvider(mock_sample_specification,
@@ -197,7 +197,7 @@ class TestFileDataProvider(TestCase):
                               len(out), max_batches))
 
     def test_start_reader(self):
-        from adlkit.data_providers.tests.mock_config import mock_sample_specification, \
+        from adlkit.data_provider.tests.mock_config import mock_sample_specification, \
             mock_batches, mock_expected_malloc_requests
         mock_sample_specification = copy.deepcopy(mock_sample_specification)
         mock_batches = copy.deepcopy(mock_batches)
@@ -256,7 +256,7 @@ class TestFileDataProvider(TestCase):
                               len(out), max_batches))
 
     def test_start_reader_one_hot(self):
-        from adlkit.data_providers.tests.mock_config import mock_sample_specification, \
+        from adlkit.data_provider.tests.mock_config import mock_sample_specification, \
             mock_batches, mock_expected_malloc_requests
         mock_sample_specification = copy.deepcopy(mock_sample_specification)
         mock_batches = copy.deepcopy(mock_batches)
@@ -314,7 +314,7 @@ class TestFileDataProvider(TestCase):
                               len(out), max_batches))
 
     def test_generator(self):
-        from adlkit.data_providers.tests.mock_config import mock_sample_specification, mock_batches, \
+        from adlkit.data_provider.tests.mock_config import mock_sample_specification, mock_batches, \
             mock_expected_malloc_requests, mock_file_index_list
         mock_sample_specification = copy.deepcopy(mock_sample_specification)
         mock_batches = copy.deepcopy(mock_batches)
@@ -357,7 +357,7 @@ class TestFileDataProvider(TestCase):
             self.assertEqual(tmp[1].shape, (batch_size, 5))
 
     def test_generator_one_hot_and_class_index(self):
-        from adlkit.data_providers.tests.mock_config import mock_sample_specification, \
+        from adlkit.data_provider.tests.mock_config import mock_sample_specification, \
             mock_batches, mock_expected_malloc_requests, mock_file_index_list
         mock_sample_specification = copy.deepcopy(mock_sample_specification)
         mock_batches = copy.deepcopy(mock_batches)
@@ -408,7 +408,7 @@ class TestFileDataProvider(TestCase):
         self.assertEqual(count, max_batches)
 
     def test_end_to_end(self):
-        from adlkit.data_providers.tests.mock_config import mock_sample_specification
+        from adlkit.data_provider.tests.mock_config import mock_sample_specification
         mock_sample_specification = copy.deepcopy(mock_sample_specification)
 
         batch_size = 5
@@ -448,7 +448,7 @@ class TestFileDataProvider(TestCase):
                              count, max_batches))
 
     def test_stop_queues(self):
-        from adlkit.data_providers.tests.mock_config import mock_sample_specification
+        from adlkit.data_provider.tests.mock_config import mock_sample_specification
         mock_sample_specification = copy.deepcopy(mock_sample_specification)
 
         tmp_file_data_provider = FileDataProvider(mock_sample_specification)
@@ -467,7 +467,7 @@ class TestFileDataProvider(TestCase):
         del tmp_file_data_provider
 
     def test_start(self):
-        from adlkit.data_providers.tests.mock_config import mock_sample_specification
+        from adlkit.data_provider.tests.mock_config import mock_sample_specification
         mock_sample_specification = copy.deepcopy(mock_sample_specification)
 
         max_batches = 100
@@ -501,7 +501,7 @@ class TestFileDataProvider(TestCase):
         :return: 
         """
 
-        from adlkit.data_providers.tests.mock_config import mock_sample_specification
+        from adlkit.data_provider.tests.mock_config import mock_sample_specification
         mock_sample_specification = copy.deepcopy(mock_sample_specification)
 
         batch_size = 5
@@ -541,7 +541,7 @@ class TestFileDataProvider(TestCase):
                 self.assertEqual(this, False)
 
     def test_multiple_generators(self):
-        from adlkit.data_providers.tests.mock_config import mock_sample_specification
+        from adlkit.data_provider.tests.mock_config import mock_sample_specification
         mock_sample_specification = copy.deepcopy(mock_sample_specification)
 
         max_batches = 10
@@ -581,7 +581,7 @@ class TestFileDataProvider(TestCase):
         self.assertEqual(total_count, max_batches * n_generators)
 
     def test_watcher_multicast(self):
-        from adlkit.data_providers.tests.mock_config import mock_read_batches, \
+        from adlkit.data_provider.tests.mock_config import mock_read_batches, \
             mock_sample_specification, mock_expected_malloc_requests
         mock_read_batches = copy.deepcopy(mock_read_batches)
         mock_sample_specification = copy.deepcopy(mock_sample_specification)

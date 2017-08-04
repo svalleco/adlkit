@@ -1,77 +1,92 @@
 import bisect
+import copy
 import datetime
 import glob
 import logging as lg
 import os
 import shelve
 import shutil
-from abc import ABCMeta, abstractmethod
+import uuid
+from abc import ABCMeta
 
-from .data_points import DataPoint, Label
+from .abstract_data_catalog import AbstractDataCatalog
 from .utils import timestamp_to_epoch_ms
 
 
-class DataAPI(object):
+class BaseDataPoint(object):
+    # TODO - wghilliard
+    # revise this class, are AbstractDataPoints even needed?
     __metaclass__ = ABCMeta
 
-    def __init__(self):
-        pass
+    timestamp = None
+    id = None
+    _origin = None
 
-    @abstractmethod
-    def purge(self):
-        pass
-
-    @abstractmethod
-    def save_data_point(self, data_point):
-        pass
-
-    @abstractmethod
-    def save_data_points(self, data_points):
-        pass
-
-    @abstractmethod
-    def get_labels(self):
-        pass
-
-    @abstractmethod
-    def get_label(self, label_name):
-        pass
-
-    @abstractmethod
-    def get_by_label(self, label):
-        pass
-
-    @abstractmethod
-    def get_by_id(self, data_point_id):
+    def __init__(self, init_item=None):
         """
-
-        :param data_point_id: str
-        :return:
+        This class consumes a dictionary and sets attributes accordingly.
+        :param init_item:
         """
-        pass
+        if isinstance(init_item, dict):
+            self.from_dict(init_item)
 
-    @abstractmethod
-    def get_by_ids(self, data_point_ids):
-        pass
+        if isinstance(init_item, shelve.DbfilenameShelf):
+            self.from_shelve(init_item)
 
-    @abstractmethod
-    def get_by_time(self, start_time, end_time):
-        pass
+        # timestamp is the only required attribute, all other info is derived from it.
+        self.timestamp = self.timestamp or datetime.datetime.utcnow()
 
-    @abstractmethod
-    def get_before(self, end_time):
-        pass
+        self.epoch_ts_str = repr(timestamp_to_epoch_ms(self.timestamp))
 
-    @abstractmethod
-    def get_after(self, start_time):
-        pass
+        tmp = str(uuid.uuid4())
+        self.id = self.id or tmp
 
-    # @abstractmethod
-    def generate_batch(self):
-        raise NotImplemented
+        self.full_id = "/".join([self.epoch_ts_str, self.id])
+
+    def from_shelve(self, shelve_item):
+        tmp = shelve_item.items()
+        self.from_dict(dict(tmp))
+
+    def from_dict(self, init_dict):
+        self._origin = copy.deepcopy(init_dict)
+        for key, value in init_dict.items():
+            setattr(self, key, value)
+
+    def to_dict(self):
+        return self.__dict__
 
 
-class FileDataAPI(DataAPI):
+class Label(BaseDataPoint):
+    name = None
+
+    members = None
+    start_time = None
+    end_time = None
+
+    def append_data_point(self, data_point):
+        assert issubclass(data_point.__class__, BaseDataPoint)
+        if not self.members:
+            self.members = list()
+
+        if data_point.id not in set(self.members):
+            self.members.append(data_point.id)
+
+        if not self.start_time:
+            self.start_time = data_point.timestamp
+        else:
+            self.start_time = min(self.start_time, data_point.timestamp)
+
+        if not self.end_time:
+            self.end_time = data_point.timestamp
+        else:
+            self.end_time = max(self.end_time, data_point.timestamp)
+
+    def get_members(self):
+        # return map(lambda x: float(x), self.members)
+        return self.members
+
+
+class FileDataCatalog(AbstractDataCatalog):
     base_dir = str()
     label_dir = str()
     data_point_dir = str()
@@ -90,7 +105,7 @@ class FileDataAPI(DataAPI):
         :param base_dir: '/some/top/level/path'
         :param label_dir: 'labels'
         """
-        super(DataAPI, self).__init__()
+        super(AbstractDataCatalog, self).__init__()
 
         self.suffix = suffix or ".pickle.gz"
 
@@ -116,7 +131,7 @@ class FileDataAPI(DataAPI):
         self._mkdirs()
 
     def save_data_point(self, data_point, labels=None, upsert=True, update_index=True):
-        assert issubclass(data_point.__class__, DataPoint)
+        assert issubclass(data_point.__class__, BaseDataPoint)
         lg.debug("saving DataPoint={0}".format(data_point.id))
         shelve_handle, new = self._get_shelve(data_point)
         if shelve_handle is None or (not upsert and not new):
@@ -201,7 +216,7 @@ class FileDataAPI(DataAPI):
         shelve_handle, new = self._get_shelve(data_point_id, self.DATAPOINT_TYPE, upsert=False)
         if new:
             return None
-        data_point_object = self._wrap_shelve(shelve_handle, DataPoint)
+        data_point_object = self._wrap_shelve(shelve_handle, BaseDataPoint)
         return data_point_object
 
     def get_by_ids(self, data_point_ids):
@@ -282,7 +297,7 @@ class FileDataAPI(DataAPI):
         elif issubclass(item.__class__, Label):
             item_name = item.name
             shelve_path = os.path.join(self.label_dir, item_name)
-        elif issubclass(item.__class__, DataPoint):
+        elif issubclass(item.__class__, BaseDataPoint):
             item_name = item.id
             # shelve_path = os.path.join(self.data_point_dir, item_name)
             shelve_path = os.path.join(self.data_point_dir, item.epoch_ts_str, item_name)
@@ -371,4 +386,3 @@ class FileDataAPI(DataAPI):
                     lg.critical("Unable to use / make specified directory={0}".format(directory))
                     lg.error(e)
                     raise OSError
-

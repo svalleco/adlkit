@@ -4,7 +4,7 @@ import logging as lg
 import multiprocessing
 from unittest import TestCase
 
-from adlkit.data_providers.fillers import H5Filler
+from adlkit.data_provider.fillers import H5Filler
 
 lg.basicConfig(level=lg.INFO, format='%(asctime)s %(levelname)s %(name)s %(message)s ')
 test_logger = lg.getLogger('data_providers.tests')
@@ -156,7 +156,7 @@ class TestH5Filler(TestCase):
         
         :return: 
         """
-        from adlkit.data_providers.tests.mock_config import mock_classes, mock_class_index_map, \
+        from adlkit.data_provider.tests.mock_config import mock_classes, mock_class_index_map, \
             mock_data_sets,mock_file_index_list
         mock_classes = copy.deepcopy(mock_classes)
         mock_class_index_map = copy.deepcopy(mock_class_index_map)

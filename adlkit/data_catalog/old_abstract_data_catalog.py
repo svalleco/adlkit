@@ -3,7 +3,7 @@ from datetime import datetime
 
 import logging as lg
 
-from adlkit.data_api.utils import epoch_time_to_file_name, timestamp_to_epoch
+from adlkit.data_catalog.utils import epoch_time_to_file_name, timestamp_to_epoch
 
 
 class Label(object):

@@ -4,8 +4,8 @@ import glob
 import os
 from unittest import TestCase
 
-from adlkit.data_api.base import FileDataAPI
-from adlkit.data_api.utils import epoch_time_to_file_name, file_name_to_epoch_time
+from adlkit.data_catalog.old_base_data_catalog import FileDataAPI
+from adlkit.data_catalog.utils import epoch_time_to_file_name, file_name_to_epoch_time
 
 
 class TestFileDataAPI(TestCase):

@@ -4,10 +4,10 @@ import argparse
 import logging as lg
 import time
 
-from adlkit.data_api.core import Label
-from adlkit.data_api.base import FileDataAPI
-from adlkit.data_api.config import base_dir, label_dir
-from adlkit.data_api.utils import file_name_to_epoch_time
+from adlkit.data_catalog.old_abstract_data_catalog import Label
+from adlkit.data_catalog.old_base_data_catalog import FileDataAPI
+from adlkit.data_catalog.config import base_dir, label_dir
+from adlkit.data_catalog.utils import file_name_to_epoch_time
 
 def setup_file_api():
     try:

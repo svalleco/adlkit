@@ -7,7 +7,7 @@ from unittest import TestCase
 
 import numpy as np
 
-from adlkit.data_providers.readers import H5Reader
+from adlkit.data_provider.readers import H5Reader
 
 lg.basicConfig(level=lg.INFO, format='%(asctime)s %(levelname)s %(name)s %(message)s ')
 

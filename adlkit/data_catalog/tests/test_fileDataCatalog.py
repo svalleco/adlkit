@@ -1,15 +1,14 @@
 from unittest import TestCase
 
-from adlkit.data_api.data_apis import FileDataAPI
-from adlkit.data_api.data_points import DataPoint, Label
-from adlkit.data_api.utils import epoch_ms_to_timestamp, timestamp_to_epoch_ms
+from adlkit.data_catalog.file_data_catalog import FileDataCatalog, BaseDataPoint,  Label
+from adlkit.data_catalog.utils import epoch_ms_to_timestamp, timestamp_to_epoch_ms
 
 
-class TestFileDataAPI(TestCase):
+class TestFileDataCatalog(TestCase):
     def setUp(self):
-        self.tmp_api = FileDataAPI('./tmp')
+        self.tmp_api = FileDataCatalog('./tmp')
         self.my_label = Label({'name': 'thing'})
-        self.my_data_point = DataPoint({'glip': 'glop'})
+        self.my_data_point = BaseDataPoint({'glip': 'glop'})
 
     def tearDown(self):
         self.tmp_api.purge()
@@ -48,7 +47,7 @@ class TestFileDataAPI(TestCase):
 
         result = self.tmp_api.get_by_id(self.my_data_point.id)
 
-        self.assertIsInstance(result, DataPoint)
+        self.assertIsInstance(result, BaseDataPoint)
 
     def test_get_by_label(self):
         self.tmp_api.save_data_point(self.my_data_point)
@@ -57,7 +56,7 @@ class TestFileDataAPI(TestCase):
         self.assertIsInstance(results, list)
         self.assertGreaterEqual(len(results), 1)
         for result in results:
-            self.assertIsInstance(result, DataPoint)
+            self.assertIsInstance(result, BaseDataPoint)
 
     def test_get_by_time(self):
         upper = 10
@@ -65,7 +64,7 @@ class TestFileDataAPI(TestCase):
         check = 5
         tmp_data_points = list()
         for index in range(upper + 1):
-            tmp_data_point = DataPoint({'glip': 'glop'})
+            tmp_data_point = BaseDataPoint({'glip': 'glop'})
             tmp_data_points.append(tmp_data_point)
             self.tmp_api.save_data_point(tmp_data_point)
 
@@ -80,7 +79,7 @@ class TestFileDataAPI(TestCase):
         self.assertIsInstance(results, list)
         self.assertGreaterEqual(len(results), upper - check)
         for result in results:
-            self.assertIsInstance(result, DataPoint)
+            self.assertIsInstance(result, BaseDataPoint)
 
         # Lower bounds check
         ##################################################
@@ -93,14 +92,14 @@ class TestFileDataAPI(TestCase):
         self.assertIsInstance(results, list)
         self.assertGreaterEqual(len(results), check - lower)
         for result in results:
-            self.assertIsInstance(result, DataPoint)
+            self.assertIsInstance(result, BaseDataPoint)
 
     def test_get_before(self):
         upper = 10
         check = 5
         tmp_data_points = list()
         for index in range(upper + 1):
-            tmp_data_point = DataPoint({'glip': 'glop'})
+            tmp_data_point = BaseDataPoint({'glip': 'glop'})
             tmp_data_points.append(tmp_data_point)
             self.tmp_api.save_data_point(tmp_data_point)
 
@@ -112,14 +111,14 @@ class TestFileDataAPI(TestCase):
         # self.assertGreaterEqual(len(results), upper - check)
         self.assertEqual(len(results), len(self.tmp_api.time_index) - check)
         for result in results:
-            self.assertIsInstance(result, DataPoint)
+            self.assertIsInstance(result, BaseDataPoint)
 
     def test_get_after(self):
         check = 5
         lower = 0
         tmp_data_points = list()
         for index in range(check + 1):
-            tmp_data_point = DataPoint({'glip': 'glop'})
+            tmp_data_point = BaseDataPoint({'glip': 'glop'})
             tmp_data_points.append(tmp_data_point)
             self.tmp_api.save_data_point(tmp_data_point)
 
@@ -130,7 +129,7 @@ class TestFileDataAPI(TestCase):
         self.assertIsInstance(results, list)
         self.assertGreaterEqual(len(results), check)
         for result in results:
-            self.assertIsInstance(result, DataPoint)
+            self.assertIsInstance(result, BaseDataPoint)
 
     def test_epoch_ms(self):
         init = self.my_data_point.timestamp
@@ -143,8 +142,8 @@ class TestFileDataAPI(TestCase):
         upper = 10
         out = list()
         labels = [self.my_label, self.tmp_api.all_label]
-        for _ in range(upper):
-            tmp = DataPoint({'glip': 'glop'})
+        for _ in range(upper + 1):
+            tmp = BaseDataPoint({'glip': 'glop'})
             out.append(tmp)
             self.tmp_api.save_data_point(tmp, labels=labels)
 
@@ -153,4 +152,4 @@ class TestFileDataAPI(TestCase):
         self.assertIsInstance(results, list)
         self.assertEqual(len(results), upper)
         for result in results:
-            self.assertIsInstance(result, DataPoint)
+            self.assertIsInstance(result, BaseDataPoint)

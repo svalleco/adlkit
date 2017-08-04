@@ -9,14 +9,14 @@ import h5py
 
 # from adlkit.data_api.core import Label
 # from adlkit.data_api.base import FileDataAPI
-from adlkit.data_api.config import base_dir
-from adlkit.data_api.data_apis import FileDataAPI
-from adlkit.data_api.data_points import DataPoint
-from adlkit.data_api.utils import file_name_to_timestamp
+from adlkit.data_catalog.config import base_dir
+from adlkit.data_catalog.file_data_catalog import FileDataCatalog
+from adlkit.data_catalog.data_points import DataPoint
+from adlkit.data_catalog.utils import file_name_to_timestamp
 
 
 def setup_file_api():
-    return FileDataAPI(base_dir)
+    return FileDataCatalog(base_dir)
 
 
 def h5_file_insert(glob_string, data_sets, api, labels=None):
