@@ -1,21 +1,15 @@
-To configure file unpack directory:
-```bash
-vi ./data_api/config.py
+# DataCatalog
+
+```
+__maintainer__ = "W. Grayson Hilliard"
 ```
 
-To run tests:
-```bash
-pytest
-```
+### Inserting Data FileDataCatalog
 
+To insert data via a single process:
 
-To insert data:
-```bash
-python -m data_api_core.bin.insert_glob '/data/wghilliard/*.h5' --label=all --backend=file --family=baseline --data_sets=thing1,thing2,thing3
-```
-
-Notes:
-
-- Testing PyCharm may not work due to pathing issues.
-Not sure how to resolve, testing with `pytest` in the root
-directory will ensure tests pass.
+1. Execute the `celery_crawl` script:
+    ```bash
+    cd $ADLKIT_INSTALL_DIR
+    python -m adlkit.data_catalog.bin.crawl './data/*.h5' --label=baseline --data_sets=tensor_1,tensor_2
+    ```

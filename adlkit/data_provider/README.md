@@ -1,4 +1,8 @@
-# Data Provider Core
+# DataProvider
+
+```
+__maintainer__ = "W. Grayson Hilliard"
+```
 
 ## Introduction
 This package is designed to provide data to the DNN models of ADLKit. The
@@ -241,6 +245,8 @@ for thing in tmp_data_provider.generators[$GENERATOR_ID].generate()
 To run tests:
 
 ```bash
-$ pip install pytest
-$ pytest
+mkdir ./data
+python ./bin/gen_rand_data.py ./data 10 2000
+cd ./tests
+pytest
 ```

@@ -10,6 +10,7 @@ data/
 logs/
 *.pyc
 tmp
+.cache
 
 gen### Python template
 # Byte-compiled / optimized / DLL files

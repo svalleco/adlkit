@@ -16,7 +16,7 @@ from adlkit.data_provider.readers import H5Reader
 from adlkit.data_provider.watchers import BaseWatcher
 
 lg.basicConfig(level=lg.INFO, format='%(asctime)s %(levelname)s %(name)s %(message)s ')
-test_logger = lg.getLogger('data_providers.tests')
+test_logger = lg.getLogger('data_provider.tests')
 
 sleep_duration = None
 
@@ -132,13 +132,6 @@ class TestFileDataProvider(TestCase):
         self.assertEqual(len(tmp_data_provider.shared_memory[worker_id]), 10,
                          "shared memory buckets were not allocated correctly")
 
-        # check to make sure locks were set
-        # self.assertEqual(len(tmp_data_provider.shared_memory[worker_id][bucket]), 2,
-        #                  "shared memory locks were not set correctly")
-
-        # Multiple Generator start locks
-        # self.assertEqual(len(tmp_data_provider.shared_memory[worker_id][bucket]), 3,
-        #                  "shared memory locks were not set correctly")
         # Multiple Generator start and end locks
         self.assertEqual(
             len(tmp_data_provider.shared_memory[worker_id][bucket]), 4,
@@ -241,8 +234,6 @@ class TestFileDataProvider(TestCase):
 
         for item in out:
             tmp_worker_id, tmp_bucket_index, tmp_data_sets, batch_id = item
-            # lg.debug(memaddr)
-            # lg.debug(tmp_data_provider.shared_memory[tmp_worker_id][tmp_bucket_index])
             # Check that each bucket was successfully updated
             self.assertEqual(tmp_data_provider.shared_memory[tmp_worker_id][
                                  tmp_bucket_index][0].value, 1)
@@ -299,8 +290,6 @@ class TestFileDataProvider(TestCase):
 
         for item in out:
             tmp_worker_id, tmp_bucket_index, tmp_data_sets, batch_id = item
-            # lg.debug(memaddr)
-            # lg.debug(tmp_data_provider.shared_memory[tmp_worker_id][tmp_bucket_index])
             # Check that each bucket was successfully updated
             self.assertEqual(tmp_data_provider.shared_memory[tmp_worker_id][
                                  tmp_bucket_index][0].value, 1)
@@ -402,9 +391,6 @@ class TestFileDataProvider(TestCase):
             self.assertEqual(tmp[2].shape, (batch_size,))
             self.assertEqual(tmp[3].shape, (batch_size, 3))
 
-        # Generators are weird, they'll return one extra item due to the loop.
-        # TODO investigate this weird shit
-        # FIXED property of generators, fixed with break check in most inner for loop
         self.assertEqual(count, max_batches)
 
     def test_end_to_end(self):
@@ -635,33 +621,33 @@ class TestFileDataProvider(TestCase):
         for gen_count in gen_counter:
             self.assertEqual(gen_count, max_batches)
 
-            # def test_watcher_free(self):
-            #     import logging as lg
-            #
-            #     lg.basicConfig(level=lg.DEBUG)
-            #
-            #     import copy
-            #     from tests.mock_config import mock_sample_specification
-            #     from threaded_gen_two import FileDataProvider, BaseWatcher, BaseGenerator, H5Reader, H5Filler
-            #
-            #     mock_sample_specification = copy.deepcopy(mock_sample_specification)
-            #
-            #     batch_size = 100
-            #     max_batches = 5
-            #     n_generators = 5
-            #     tmp_data_provider = FileDataProvider(mock_sample_specification,
-            #                                          batch_size=batch_size,
-            #                                          read_multipler=2,
-            #                                          make_one_hot=True,
-            #                                          make_class_index=True,
-            #                                          n_readers=5,
-            #                                          n_generators=n_generators)
-            #
-            #     tmp_data_provider.start(filler_class=H5Filler,
-            #                             reader_class=H5Reader,
-            #                             generator_class=BaseGenerator,
-            #                             watcher_class=BaseWatcher)
-            #     for _ in range(100):
-            #         for generator_index in range(tmp_data_provider.config.n_generators):
-            #             tmp_data_provider.generators[generator_index].generate().next()
-            #             lg.debug(tmp_data_provider.shared_memory[0][0][2].value)
+    # def test_watcher_free(self):
+    #     import logging as lg
+    #
+    #     lg.basicConfig(level=lg.DEBUG)
+    #
+    #     import copy
+    #     from tests.mock_config import mock_sample_specification
+    #     from threaded_gen_two import FileDataProvider, BaseWatcher, BaseGenerator, H5Reader, H5Filler
+    #
+    #     mock_sample_specification = copy.deepcopy(mock_sample_specification)
+    #
+    #     batch_size = 100
+    #     max_batches = 5
+    #     n_generators = 5
+    #     tmp_data_provider = FileDataProvider(mock_sample_specification,
+    #                                          batch_size=batch_size,
+    #                                          read_multipler=2,
+    #                                          make_one_hot=True,
+    #                                          make_class_index=True,
+    #                                          n_readers=5,
+    #                                          n_generators=n_generators)
+    #
+    #     tmp_data_provider.start(filler_class=H5Filler,
+    #                             reader_class=H5Reader,
+    #                             generator_class=BaseGenerator,
+    #                             watcher_class=BaseWatcher)
+    #     for _ in range(100):
+    #         for generator_index in range(tmp_data_provider.config.n_generators):
+    #             tmp_data_provider.generators[generator_index].generate().next()
+    #             lg.debug(tmp_data_provider.shared_memory[0][0][2].value)

@@ -32,7 +32,7 @@ _Tested on Python 2.7.13_
     git clone https://github.com/anomalousdl/adlkit
     ```
 
-3. (Optional) Setup a python virtual environment:
+2. (Optional) Setup a python virtual environment:
    ```bash
    pip install virtualenvwrapper
    source /usr/local/bin/virtualenvwrapper.sh
@@ -40,11 +40,11 @@ _Tested on Python 2.7.13_
    workon workspace
    ```
 
-3. Use pip to install the package .
+3. Use pip to install the package:
     ```bash
     pip install -e ./adlkit
     ```
 
 ### More Info
-  - `adlkit/data_provider/README.md`
-  - `adlkit/data_catalog/README.md`
+  - `adlkit_internal/data_provider/README.md`
+  - `adlkit_internal/data_catalog/README.md`

@@ -1,29 +1,35 @@
 from unittest import TestCase
 
-from adlkit.data_catalog.file_data_catalog import FileDataCatalog, BaseDataPoint,  Label
+from adlkit.data_catalog.file_data_catalog import BaseDataPoint, FileDataCatalog, Label
 from adlkit.data_catalog.utils import epoch_ms_to_timestamp, timestamp_to_epoch_ms
 
 
 class TestFileDataCatalog(TestCase):
-    def setUp(self):
-        self.tmp_api = FileDataCatalog('./tmp')
-        self.my_label = Label({'name': 'thing'})
-        self.my_data_point = BaseDataPoint({'glip': 'glop'})
+    tmp_api = None
+    tmp_label = None
+    tmp_data_point = None
 
-    def tearDown(self):
-        self.tmp_api.purge()
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp_api = FileDataCatalog('./tmp')
+        cls.tmp_label = Label({'name': 'thing'})
+        cls.tmp_data_point = BaseDataPoint({'glip': 'glop'})
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp_api.purge()
 
     def test_save_label(self):
-        value = self.tmp_api.save_label(self.my_label)
+        value = self.tmp_api.save_label(self.tmp_label)
         self.assertTrue(value)
 
     def test_save_label_no_upsert(self):
-        self.tmp_api.save_label(self.my_label)
-        value = self.tmp_api.save_label(self.my_label, upsert=False)
+        self.tmp_api.save_label(self.tmp_label)
+        value = self.tmp_api.save_label(self.tmp_label, upsert=False)
         self.assertFalse(value)
 
     def test_get_labels(self):
-        self.tmp_api.save_label(self.my_label)
+        self.tmp_api.save_label(self.tmp_label)
         labels = self.tmp_api.get_labels()
 
         # The `all` and `thing` label should be present
@@ -33,24 +39,24 @@ class TestFileDataCatalog(TestCase):
             self.assertIsInstance(item, Label)
 
     def test_save_data_point(self):
-        result = self.tmp_api.save_data_point(self.my_data_point)
+        result = self.tmp_api.save_data_point(self.tmp_data_point)
         self.assertTrue(result)
 
     def test_save_data_point_with_labels(self):
-        self.tmp_api.save_label(self.my_label)
-        result = self.tmp_api.save_data_point(self.my_data_point,
-                                              labels=[self.my_label])
+        self.tmp_api.save_label(self.tmp_label)
+        result = self.tmp_api.save_data_point(self.tmp_data_point,
+                                              labels=[self.tmp_label])
         self.assertTrue(result)
 
     def test_get_by_id(self):
-        self.tmp_api.save_data_point(self.my_data_point)
+        self.tmp_api.save_data_point(self.tmp_data_point)
 
-        result = self.tmp_api.get_by_id(self.my_data_point.id)
+        result = self.tmp_api.get_by_id(self.tmp_data_point.id)
 
         self.assertIsInstance(result, BaseDataPoint)
 
     def test_get_by_label(self):
-        self.tmp_api.save_data_point(self.my_data_point)
+        self.tmp_api.save_data_point(self.tmp_data_point)
         results = self.tmp_api.get_by_label(self.tmp_api.all_label)
 
         self.assertIsInstance(results, list)
@@ -132,7 +138,7 @@ class TestFileDataCatalog(TestCase):
             self.assertIsInstance(result, BaseDataPoint)
 
     def test_epoch_ms(self):
-        init = self.my_data_point.timestamp
+        init = self.tmp_data_point.timestamp
         epoch_ms = timestamp_to_epoch_ms(init)
         out = epoch_ms_to_timestamp(epoch_ms)
 
@@ -141,7 +147,7 @@ class TestFileDataCatalog(TestCase):
     def test_get_by_time_with_labels(self):
         upper = 10
         out = list()
-        labels = [self.my_label, self.tmp_api.all_label]
+        labels = [self.tmp_label, self.tmp_api.all_label]
         for _ in range(upper + 1):
             tmp = BaseDataPoint({'glip': 'glop'})
             out.append(tmp)

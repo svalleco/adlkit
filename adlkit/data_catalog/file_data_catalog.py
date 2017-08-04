@@ -128,7 +128,6 @@ class FileDataCatalog(AbstractDataCatalog):
 
     def purge(self):
         shutil.rmtree(self.base_dir)
-        self._mkdirs()
 
     def save_data_point(self, data_point, labels=None, upsert=True, update_index=True):
         assert issubclass(data_point.__class__, BaseDataPoint)
