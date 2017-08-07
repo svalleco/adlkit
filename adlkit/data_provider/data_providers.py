@@ -18,13 +18,13 @@ from .watchers import BaseWatcher
 data_provider_logger = lg.getLogger('data_provider.main.dataprovdr')
 
 
-class BaseDataProvider(ConfigurableObject):
+class AbstractDataProvider(ConfigurableObject):
     name = None
     error = None
     __metaclass__ = ABCMeta
 
     def __init__(self, default_config, config=None, name=None):
-        super(BaseDataProvider, self).__init__(default_config, config)
+        super(AbstractDataProvider, self).__init__(default_config, config)
         self.name = name or 'DataProvider'
 
     @abstractmethod
@@ -44,7 +44,7 @@ class BaseDataProvider(ConfigurableObject):
         pass
 
 
-class FileDataProvider(BaseDataProvider):
+class FileDataProvider(AbstractDataProvider):
     def __init__(self, sample_specification, **kwargs):
         """
         

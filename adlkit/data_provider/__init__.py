@@ -12,7 +12,7 @@ Provides:
 """
 from __future__ import absolute_import
 
-from .data_providers import FileDataProvider, H5FileDataProvider, BaseDataProvider
+from .data_providers import FileDataProvider, H5FileDataProvider, AbstractDataProvider
 from .config import Config, ConfigurableObject
 from .workers import Worker
 from .fillers import BaseFiller, H5Filler
