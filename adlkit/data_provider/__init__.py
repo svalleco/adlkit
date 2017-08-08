@@ -19,5 +19,6 @@ from .fillers import BaseFiller, H5Filler
 from .readers import BaseReader, H5Reader
 from .generators import BaseGenerator
 from .watchers import BaseWatcher
+from .cached_data_providers import GeneratorCacher
 
 __all__ = ['config', 'data_providers', 'fillers', 'generators', 'readers', 'watchers', 'workers']
