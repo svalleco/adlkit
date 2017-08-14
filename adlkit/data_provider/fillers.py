@@ -262,7 +262,7 @@ class H5Filler(BaseFiller):
 
                     self.info("filter_function_time={0}".format(time.time() - filter_time))
 
-                    tmp_class_holder['current_file_indices'] = tmp_filter_index_list
+                    tmp_class_holder['current_file_indices'] = sorted(tmp_filter_index_list)
 
                 start_index = tmp_class_holder['example_index']
 
