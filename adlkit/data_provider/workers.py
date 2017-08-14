@@ -1,7 +1,9 @@
-import time
-import multiprocessing
 import Queue
 import logging as lg
+import multiprocessing
+import time
+
+import numpy as np
 
 from .config import STOP_MESSAGE
 
@@ -28,6 +30,8 @@ class Worker(multiprocessing.Process):
     def __init__(self, worker_id, control_queue_depth=1, sleep_duration=1,
                  **kwargs):
         super(Worker, self).__init__()
+
+        np.random.seed()
 
         self.control_queue = multiprocessing.Queue(maxsize=control_queue_depth)
         self.worker_id = worker_id

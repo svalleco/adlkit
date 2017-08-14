@@ -5,9 +5,12 @@ import time
 from collections import OrderedDict
 
 import h5py
+from numpy import random
 
-from .config import FILLER_OFFSET, RANDOM
+from .config import FILLER_OFFSET
 from .workers import Worker
+
+RANDOM = random.random
 
 filler_logger = lg.getLogger('data_provider.workers.fillers')
 
