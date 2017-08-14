@@ -6,6 +6,7 @@ import time
 import h5py
 import keras
 import numpy as np
+from six import raise_from
 
 from .config import READER_OFFSET
 from .workers import Worker
@@ -54,15 +55,15 @@ class BaseReader(Worker):
             message = " ".join(message)
         # super(BaseReader, self).debug(" :READER #{0}: ".format(self.reader_id) + message)
         reader_logger.info(
-            " reader_id={0} reader_batch_id={1} ".format(self.worker_id,
-                                                         self.batch_count) + message)
+                " reader_id={0} reader_batch_id={1} ".format(self.worker_id,
+                                                             self.batch_count) + message)
 
     def critical(self, message):
         if isinstance(message, list):
             message = " ".join(message)
         reader_logger.critical(
-            " reader_id={0} reader_batch_id={1} ".format(self.worker_id,
-                                                         self.batch_count) + message)
+                " reader_id={0} reader_batch_id={1} ".format(self.worker_id,
+                                                             self.batch_count) + message)
 
     def run(self, **kwargs):
         self.read()
@@ -84,19 +85,20 @@ class BaseReader(Worker):
 
             batch = self.get_batch()
             if batch is not None:
-                # self.info("in_queue_get_wait_time={0} in_queue_size={1}".format(time.time() - in_queue_time, self.in_queue.qsize()))
+                # self.info("in_queue_get_wait_time={0} in_queue_size={1}".format(time.time() - in_queue_time,
+                # self.in_queue.qsize()))
                 self.info("in_queue_get_wait_time={0}".format(
-                    time.time() - in_queue_time))
+                        time.time() - in_queue_time))
                 start_time = time.time()
                 self.debug("starting to prepare batch")
                 data_pointer = self.process_batch(batch)
                 self.info(
-                    "process_batch_time={0}".format(time.time() - start_time))
+                        "process_batch_time={0}".format(time.time() - start_time))
 
                 if data_pointer is None:
                     self.critical(
-                        "process_batch returned None, exiting... {0}".format(
-                            batch))
+                            "process_batch returned None, exiting... {0}".format(
+                                    batch))
                     return False
 
                 self.debug("starting out_queue.put")
@@ -111,9 +113,10 @@ class BaseReader(Worker):
                         self.sleep()
 
                 self.info(
-                    "batch_read_time={0} out_queue_put_wait_time={1}".format(
-                        time.time() - start_time, time.time() - wait_time))
-                # self.info("batch_read_time={0} out_queue_put_wait_time={1} out_queue_size={2}".format(time.time() - start_time, time.time() - wait_time, self.out_queue.qsize()))
+                        "batch_read_time={0} out_queue_put_wait_time={1}".format(
+                                time.time() - start_time, time.time() - wait_time))
+                # self.info("batch_read_time={0} out_queue_put_wait_time={1} out_queue_size={2}".format(time.time() -
+                #  start_time, time.time() - wait_time, self.out_queue.qsize()))
 
                 self.batch_count += 1
                 in_queue_time = time.time()
@@ -143,8 +146,8 @@ class BaseReader(Worker):
                     if bucket[0].value == 0:
                         bucket[0].value = 1
                         self.info(
-                            "bucket_seek_time={0} bucket_index={1}".format(
-                                time.time() - start_time, bucket_index))
+                                "bucket_seek_time={0} bucket_index={1}".format(
+                                        time.time() - start_time, bucket_index))
                         return bucket_index
             self.sleep()
 
@@ -231,17 +234,18 @@ class H5Reader(BaseReader):
                     payloads[data_set][read_index] = np.array(h5_file_handle[data_set][
                                                               read_descriptor[0]:read_descriptor[
                                                                   1]])
-                    # payloads[data_set_index][read_index] = h5_file_handle[data_set][read_descriptor[0]:read_descriptor[1]]
+                    # payloads[data_set_index][read_index] = h5_file_handle[data_set][read_descriptor[
+                    # 0]:read_descriptor[1]]
 
                 elif isinstance(read_descriptor, list) or isinstance(read_descriptor, np.ndarray):
                     # TODO there is potentially a faster way
                     # https://stackoverflow.com/questions/21766145/h5py-correct-way-to-slice-array-datasets
                     payloads[data_set][read_index] = np.take(
-                        h5_file_handle[data_set], read_descriptor, axis=0)
+                            h5_file_handle[data_set], read_descriptor, axis=0)
 
             self.info(
-                "h5_to_payloads_time={0} read_index={1} batch_id={2}".format(
-                    time.time() - h5_to_payloads_time, read_index, batch_id))
+                    "h5_to_payloads_time={0} read_index={1} batch_id={2}".format(
+                            time.time() - h5_to_payloads_time, read_index, batch_id))
 
             if tmp_index_payload is None:
                 tmp_index_payload = np.zeros(self.read_size)
@@ -257,7 +261,13 @@ class H5Reader(BaseReader):
                     tmp_file_struct.append((file_path_index, index))
 
             tmp_class_index = np.full(n_examples, self.class_index_map[class_name])
-            tmp_index_payload[start:start + n_examples] = tmp_class_index
+            try:
+                tmp_index_payload[start:start + n_examples] = tmp_class_index
+            except ValueError as e:
+                lg.critical("n_examples={} start={} len(tmp_class_index)={}".format(n_examples,
+                                                                                    start,
+                                                                                    len(tmp_class_index)))
+                raise_from(ValueError, e)
 
             # tmp_file_index = np.full(n_examples, self.class_index_map[class_name])
             # for thing in range(n_examples):
@@ -268,7 +278,7 @@ class H5Reader(BaseReader):
                 h5_file_handle.close()
 
         self.info("payloads_build_time={0} batch_id={1}".format(
-            time.time() - payloads_build_time, batch_id))
+                time.time() - payloads_build_time, batch_id))
 
         concat_time = time.time()
         for data_set in payloads:
@@ -280,8 +290,8 @@ class H5Reader(BaseReader):
                 raise ValueError(e)
 
         self.info(
-            "concat_time={0} batch_id={1}".format(time.time() - concat_time,
-                                                  batch_id))
+                "concat_time={0} batch_id={1}".format(time.time() - concat_time,
+                                                      batch_id))
 
         if self.make_class_index:
             payloads['class_index'] = tmp_index_payload
@@ -299,7 +309,7 @@ class H5Reader(BaseReader):
             # print('using process function')
             payloads = self.process_function(payloads)
             self.info("process_function_time={0} batch_id={1}".format(
-                time.time() - process_time, batch_id))
+                    time.time() - process_time, batch_id))
         else:
             payloads = payloads.values()
 
@@ -320,7 +330,7 @@ class H5Reader(BaseReader):
                 self.shared_memory_pointer[bucket_index][1][data_set_index][...] = np.copy(payload)
 
             self.info("store_in_shared_time={0} batch_id={1}".format(
-                time.time() - store_in_shared_time, batch_id))
+                    time.time() - store_in_shared_time, batch_id))
             return self.worker_id - READER_OFFSET, bucket_index, data_sets, batch_id
         else:
             return payloads
