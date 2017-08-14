@@ -81,8 +81,8 @@ class BaseFiller(Worker):
                     self.sleep()
 
             self.info(
-                "batch_fill_time={0} in_queue_put_wait_time={1}".format(time.time() - start_time,
-                                                                        time.time() - in_queue_put_wait_time))
+                    "batch_fill_time={0} in_queue_put_wait_time={1}".format(time.time() - start_time,
+                                                                            time.time() - in_queue_put_wait_time))
             self.batch_count += 1
 
         self.debug("exiting...")
@@ -204,9 +204,9 @@ class H5Filler(BaseFiller):
 
         for class_name in self.classes:
             self.debug(
-                "batch_id={0} n_examples={1} class_name={2}".format(self.batch_count,
-                                                                    self.classes[class_name][
-                                                                        'n_examples'], class_name))
+                    "batch_id={0} n_examples={1} class_name={2}".format(self.batch_count,
+                                                                        self.classes[class_name][
+                                                                            'n_examples'], class_name))
 
     def build_batch(self):
         """
@@ -255,7 +255,7 @@ class H5Filler(BaseFiller):
                                                                                      "data_set_names"])
                     else:
                         tmp_filter_index_list = range(
-                            h5_file_handle[tmp_class_holder["data_set_names"][0]].shape[0])
+                                h5_file_handle[tmp_class_holder["data_set_names"][0]].shape[0])
 
                     self.info("filter_function_time={0}".format(time.time() - filter_time))
 
@@ -311,6 +311,14 @@ class H5Filler(BaseFiller):
         if self.report:
             self.inform_data_provider(tmp_data_set_tracker, batch)
 
+        if isinstance(batch[0][3], list):
+            batch_sum_check = sum(len(item[3]) for item in batch)
+        elif isinstance(batch[0][3], tuple):
+            batch_sum_check = sum(item[3][1] - item[3][0] for item in batch)
+        else:
+            # guaranteed fail case
+            batch_sum_check = 0
+        assert self.read_size == batch_sum_check
         return batch
 
     def reset(self):
