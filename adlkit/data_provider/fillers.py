@@ -281,7 +281,7 @@ class H5Filler(BaseFiller):
                     read_descriptor = (tmp_class_holder['current_file_indices'][start_index],
                                        tmp_class_holder['current_file_indices'][end_index])
 
-                # TODO figure out how to test this
+                # TODO figure out how to test this better
                 if start_index == end_index:
                     read_descriptor = [tmp_class_holder['current_file_indices'][start_index]]
                     tmp_examples_added += 1
@@ -293,8 +293,6 @@ class H5Filler(BaseFiller):
                               class_name,
                               read_descriptor,
                               self.batch_count))
-
-
 
                 if end_index >= max_index_possible or start_index == end_index:
 

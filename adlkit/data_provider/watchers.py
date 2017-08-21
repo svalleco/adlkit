@@ -1,6 +1,6 @@
 import Queue
-import time
 import logging as lg
+import time
 
 from .config import WATCHER_OFFSET
 from .workers import Worker
@@ -34,11 +34,14 @@ class BaseWatcher(Worker):
         self.watch()
 
     def watch(self):
+        # TODO - wghilliard - when pruning generators, batch dropping may occur
+        # TODO - wghilliard - keep pace switch
+        # TODO - wghilliard - time out for locks
+
         out_queue_get_wait_time = time.time()
-        while not self.should_stop() and (
-                self.max_batches is None or self.batch_count < self.max_batches):
-        # while not self.should_stop() or (
-        #                 self.max_batches is not None and self.batch_count < self.max_batches):
+        while not self.should_stop() and (self.max_batches is None or self.batch_count < self.max_batches):
+            # while not self.should_stop() or (
+            #                 self.max_batches is not None and self.batch_count < self.max_batches):
             try:
                 read_batch = self.out_queue.get(timeout=1)
                 if read_batch is not None:
@@ -64,8 +67,8 @@ class BaseWatcher(Worker):
                     with bucket[0].get_lock() and bucket[2].get_lock() and bucket[3].get_lock():
                         if bucket[2].value == bucket[3].value == self.n_generators:
                             self.debug(
-                                "resetting bucket reader_id={0} bucket_id={1}".format(reader_index,
-                                                                                      bucket_index))
+                                    "resetting bucket reader_id={0} bucket_id={1}".format(reader_index,
+                                                                                          bucket_index))
                             bucket[0].value = 0
                             bucket[2].value = 0
                             bucket[3].value = 0
