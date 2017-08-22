@@ -51,45 +51,45 @@ class FileDataProvider(AbstractDataProvider):
         :param kwargs: 
         """
         default_config = {
-            'batch_size': 2048,
+            'batch_size'         : 2048,
 
             # If initial indices should be skipped, set this to the
             # correspinding index.
-            'skip': 0,
+            'skip'               : 0,
 
             # The max number of batches to deliver, per generator.
-            'max': 1e12,
+            'max'                : 1e12,
 
             # If examples can be reused.
-            'wrap_examples': True,
+            'wrap_examples'      : True,
 
             # The number of reader processes to spawn. Each takes about ~4
             # file descriptors, so if you run out => make this number smaller.
-            'n_readers': 20,
+            'n_readers'          : 20,
 
             # How many generators will be reading the same data? Less than
             # one will cause an error. -1 might work...
-            'n_generators': 1,
+            'n_generators'       : 1,
 
             # If it is more efficient to read multiple batches at a time,
             # increment this.
-            'read_multiplier': 1,
+            'read_multiplier'    : 1,
 
             # Not Implemented
-            'waittime': 0.005,
+            'waittime'           : 0.005,
 
             # False Not Implemented
-            'use_shared_memory': True,
+            'use_shared_memory'  : True,
 
             # How many buckets should each reader have? When tuning,
             # scale with read_multiplier.
-            'n_buckets': 10,
+            'n_buckets'          : 10,
 
             # Queue depth coefficient for scaling with number of readers.
-            'q_multipler': 1,
+            'q_multipler'        : 1,
 
             # Not Implemented
-            'GeneratorTimeout': 10,
+            'GeneratorTimeout'   : 10,
 
             # Not Implemented
             'SharedDataQueueSize': 1,
@@ -99,45 +99,45 @@ class FileDataProvider(AbstractDataProvider):
             # A filter_function will be given the first index of the
             # sample_specification and asked to produce a list of read_indices.
             # It can either be a single function or a dictionary of class_name:function pairs.
-            'filter_function': None,
+            'filter_function'    : None,
 
             # TODO convert to {'fun_name': function()}
             # A process_function will consume an OrderedDictionary and be
             # expected to produce a list of numpy arrays to store into the
             # shared memory.
-            'process_function': None,
+            'process_function'   : None,
 
             # If you need to swap the order, downsample, or any
             # other last-minute operation, do that here. Given a list of
             # numpy tensors, return a list of numpy tensors.
             # **NOTE** this is done in the h5_file_insert process.
-            'delivery_function': None,
+            'delivery_function'  : None,
 
             # If the batch should contain the class index tensor and the
             # one_hot tensors.
-            'make_class_index': False,
-            'make_one_hot': False,
+            'make_class_index'   : False,
+            'make_one_hot'       : False,
 
             # If the batch should contain a reference to the file+index combo that the data point
             # came from.
-            'make_file_index': False,
+            'make_file_index'    : False,
 
             # Not implemented.
-            'catch_signals': False,
+            'catch_signals'      : False,
 
             # This is a race condition catch. Probably not a good idea to
             # disable but may make sense in edge-cases.
-            'wait_for_malloc': True,
+            'wait_for_malloc'    : True,
 
             # The amount of time a worker should sleep if they are blocked by resource constraints.
             # This is used with os.sleep so either a float or an int should work.
-            'sleep_duration': 1,
+            'sleep_duration'     : 1,
 
             # If the rows should be shuffled on a per-batch basis.
-            'shuffle': True,
+            'shuffle'            : True,
 
             # If the reader should cache the file handles or close files after reading.
-            'cache_handles': False,
+            'cache_handles'      : False,
         }
 
         # TODO decompose defaults into super classes
@@ -181,18 +181,18 @@ class FileDataProvider(AbstractDataProvider):
 
         if self.config.make_class_index:
             self.extra_malloc_requests.append(
-                ('class_index', tuple())
+                    ('class_index', tuple())
             )
 
         if self.config.make_one_hot:
             self.extra_malloc_requests.append(
-                ('one_hot', (len(self.config.classes),))
+                    ('one_hot', (len(self.config.classes),))
             )
 
         self.config.translate_col_to_file_name = None
         if self.config.make_file_index:
             self.extra_malloc_requests.append(
-                ('file_index', (2,))
+                    ('file_index', (2,))
             )
             self.config.translate_col_to_file_name = -1
 
@@ -205,8 +205,9 @@ class FileDataProvider(AbstractDataProvider):
 
     def process_sample_specification(self, sample_specification):
         self.config.sample_specification = sample_specification
-        self.config.classes, self.config.class_index_map, self.config.data_sets, self.config.file_index_list = self.build_classes_from_files(
-            sample_specification)
+        self.config.classes, self.config.class_index_map, self.config.data_sets, self.config.file_index_list = \
+            self.build_classes_from_files(
+                sample_specification)
 
     @staticmethod
     def build_classes_from_files(sample_specification, class_index_map=None):
@@ -249,14 +250,14 @@ class FileDataProvider(AbstractDataProvider):
                 classes[class_name]['file_names'].append(file_index)
             except KeyError:
                 classes[class_name] = {
-                    "file_names": [file_index],
-                    "n_examples": 0,
-                    "file_index": 0,
-                    "example_index": 0,
-                    "data_set_names": data_set_names,
-                    "class_index": class_index,
-                    "file_handle": False,
-                    "class_prob": class_prob,
+                    "file_names"          : [file_index],
+                    "n_examples"          : 0,
+                    "file_index"          : 0,
+                    "example_index"       : 0,
+                    "data_set_names"      : data_set_names,
+                    "class_index"         : class_index,
+                    "file_handle"         : False,
+                    "class_prob"          : class_prob,
                     "current_file_indices": None
                 }
 
@@ -319,7 +320,7 @@ class FileDataProvider(AbstractDataProvider):
             # ensuring we don't index error
             if len(self.shared_memory) < reader_id + 1:
                 self.shared_memory.extend(
-                    range(len(self.shared_memory), reader_id + 1))
+                        range(len(self.shared_memory), reader_id + 1))
 
             buckets = list()
             for bucket in range(self.config.n_buckets):
@@ -406,7 +407,7 @@ class FileDataProvider(AbstractDataProvider):
         if shape_reader_class is not None and self.config.process_function is not None:
             if not issubclass(shape_reader_class, BaseReader):
                 message = "cannot use reader of type {0} or process function was not given".format(
-                    type(shape_reader_class))
+                        type(shape_reader_class))
                 raise ValueError(message)
 
             shape_reader = shape_reader_class(worker_id=0,
@@ -499,16 +500,17 @@ class FileDataProvider(AbstractDataProvider):
             # file_index_list,
 
             self.generators[generator_id] = generator_class(
-                out_queue=out_queue,
-                batch_size=self.config.batch_size,
-                shared_memory_pointer=self.shared_memory,
-                file_index_list=self.config.file_index_list,
-                worker_id=generator_id,
-                watched=watched,
-                translate_col_to_file_name=self.config.translate_col_to_file_name,
-                delivery_function=self.config.delivery_function,
-                sleep_duration=self.config.sleep_duration,
-                **kwargs)
+                    out_queue=out_queue,
+                    batch_size=self.config.batch_size,
+                    shared_memory_pointer=self.shared_memory,
+                    class_index_map=self.config.class_index_map,
+                    file_index_list=self.config.file_index_list,
+                    worker_id=generator_id,
+                    watched=watched,
+                    translate_col_to_file_name=self.config.translate_col_to_file_name,
+                    delivery_function=self.config.delivery_function,
+                    sleep_duration=self.config.sleep_duration,
+                    **kwargs)
 
             return generator_id
         return None
@@ -532,16 +534,16 @@ class FileDataProvider(AbstractDataProvider):
 
     def start_queues(self):
         self.in_queue = multiprocessing.Queue(
-            maxsize=self.config.q_multipler * self.config.n_readers)
+                maxsize=self.config.q_multipler * self.config.n_readers)
         self.out_queue = multiprocessing.Queue(
-            maxsize=self.config.q_multipler * self.config.n_readers)
+                maxsize=self.config.q_multipler * self.config.n_readers)
         self.malloc_queue = multiprocessing.Queue(
-            maxsize=self.config.q_multipler * self.config.n_readers)
+                maxsize=self.config.q_multipler * self.config.n_readers)
 
         for _ in range(self.config.n_generators):
             self.multicast_queues.append(
-                # multiprocessing.Queue(maxsize=self.config.q_multipler * self.config.n_generators))
-                multiprocessing.Queue(maxsize=self.config.q_multipler * self.config.n_readers))
+                    # multiprocessing.Queue(maxsize=self.config.q_multipler * self.config.n_generators))
+                    multiprocessing.Queue(maxsize=self.config.q_multipler * self.config.n_readers))
 
     def stop_queues(self):
         try:

@@ -13,6 +13,7 @@ class BaseGenerator(Worker):
                  out_queue,
                  batch_size,
                  shared_memory_pointer,
+                 class_index_map,
                  file_index_list,
                  translate_col_to_file_name=False,
                  worker_id=999,
@@ -24,6 +25,7 @@ class BaseGenerator(Worker):
 
         self.out_queue = out_queue
         self.batch_size = batch_size
+        self.class_index_map = class_index_map
         self.file_index_list = file_index_list
         self.shared_memory_pointer = shared_memory_pointer
         self.delivery_function = delivery_function
@@ -105,7 +107,7 @@ class BaseGenerator(Worker):
                         # generators get caught in this loop so redundant checks are necessary
                         # using that De Morgans law yo
                         if self.should_stop() or (
-                                self.max_batches is not None and self.batch_count == self.max_batches):
+                                        self.max_batches is not None and self.batch_count == self.max_batches):
                             raise StopIteration
 
                         self.debug("attempting to deliver a batch")
