@@ -137,7 +137,7 @@ class FileDataProvider(AbstractDataProvider):
             'shuffle'               : True,
 
             # If the reader should cache the file handles or close files after reading.
-            'cache_handles'         : False,
+            'cache_handles'         : True,
 
             # The number of batches a filler should create before resetting.
             'read_batches_per_epoch': None
