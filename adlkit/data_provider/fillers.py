@@ -56,8 +56,7 @@ class BaseFiller(Worker):
 
         self.debug("starting...")
 
-        while not self.should_stop() and (
-                        self.max_batches is None or self.batch_count < self.max_batches):
+        while not self.should_stop() and (self.max_batches is None or self.batch_count < self.max_batches):
 
             if self.read_batches_per_epoch is not None and self.batch_count % self.read_batches_per_epoch == 0:
                 self.reset()
