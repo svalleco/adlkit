@@ -157,17 +157,15 @@ class H5Filler(BaseFiller):
     def inform_data_provider(self, data_sets, batch):
         malloc_requests = list()
         if self.shape_reader is None:
-            ruler_data_set = data_sets[0]
-
-            file_name = self.file_index_list[batch[0][0]]
-            if file_name in self.file_handle_holder:
-                h5_file_handle = self.file_handle_holder[file_name]
-            else:
-                h5_file_handle = self.file_handle_holder[file_name] = h5py.File(file_name, 'r')
-
-            shape = h5_file_handle[ruler_data_set][0].shape
-
             for data_set in data_sets:
+                file_name = self.file_index_list[batch[0][0]]
+                if file_name in self.file_handle_holder:
+                    h5_file_handle = self.file_handle_holder[file_name]
+                else:
+                    h5_file_handle = self.file_handle_holder[file_name] = h5py.File(file_name, 'r')
+
+                shape = h5_file_handle[data_set][0].shape
+
                 malloc_requests.append((data_set, shape))
 
         else:
