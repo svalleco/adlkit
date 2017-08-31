@@ -58,7 +58,7 @@ class FileDataProvider(AbstractDataProvider):
             'skip'                  : 0,
 
             # The max number of batches to deliver, per generator.
-            'max'                   : 1e12,
+            'max_batches'           : 1e12,
 
             # If examples can be reused.
             'wrap_examples'         : True,
@@ -430,6 +430,7 @@ class FileDataProvider(AbstractDataProvider):
 
             self.filler = filler_class(classes=self.config.classes,
                                        class_index_map=self.config.class_index_map,
+                                       max_batches=self.config.max_batches,
                                        file_index_list=self.config.file_index_list,
                                        in_queue=self.in_queue,
                                        worker_id=filler_id,
@@ -462,8 +463,8 @@ class FileDataProvider(AbstractDataProvider):
 
             self.readers[reader_id] = reader_class(in_queue=self.in_queue,
                                                    out_queue=self.out_queue,
-                                                   shared_memory_pointer=
-                                                   self.shared_memory[reader_id],
+                                                   shared_memory_pointer=self.shared_memory[reader_id],
+                                                   max_batches=self.config.max_batches,
                                                    worker_id=reader_id,
                                                    read_size=self.config.read_size,
                                                    class_index_map=self.config.class_index_map,
@@ -506,6 +507,7 @@ class FileDataProvider(AbstractDataProvider):
             self.generators[generator_id] = generator_class(
                     out_queue=out_queue,
                     batch_size=self.config.batch_size,
+                    max_batches=self.config.max_batches,
                     shared_memory_pointer=self.shared_memory,
                     class_index_map=self.config.class_index_map,
                     file_index_list=self.config.file_index_list,
