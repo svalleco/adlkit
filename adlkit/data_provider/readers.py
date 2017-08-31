@@ -243,12 +243,10 @@ class H5Reader(BaseReader):
                     # payloads[data_set][read_index] = np.take(h5_file_handle[data_set], read_descriptor, axis=0)
                     payloads[data_set][read_index] = h5_file_handle[data_set][read_descriptor]
 
-            calc = time.time() - h5_to_payloads_time
-            self.info(
-                    "h5_to_payloads_time={0} read_index={1} batch_id={2}".format(
-                            calc, read_index, batch_id))
-            if calc > 2:
-                print(batch)
+            self.info("h5_to_payloads_time={0} read_index={1} batch_id={2}".format(time.time() - h5_to_payloads_time,
+                                                                                   read_index,
+                                                                                   batch_id))
+
             if tmp_index_payload is None:
                 tmp_index_payload = np.zeros(self.read_size)
 
