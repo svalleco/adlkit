@@ -240,13 +240,15 @@ class H5Reader(BaseReader):
                 elif isinstance(read_descriptor, list) or isinstance(read_descriptor, np.ndarray):
                     # TODO there is potentially a faster way
                     # https://stackoverflow.com/questions/21766145/h5py-correct-way-to-slice-array-datasets
-                    payloads[data_set][read_index] = np.take(
-                            h5_file_handle[data_set], read_descriptor, axis=0)
+                    # payloads[data_set][read_index] = np.take(h5_file_handle[data_set], read_descriptor, axis=0)
+                    payloads[data_set][read_index] = h5_file_handle[data_set][read_descriptor]
 
+            calc = time.time() - h5_to_payloads_time
             self.info(
                     "h5_to_payloads_time={0} read_index={1} batch_id={2}".format(
-                            time.time() - h5_to_payloads_time, read_index, batch_id))
-
+                            calc, read_index, batch_id))
+            if calc > 2:
+                print(batch)
             if tmp_index_payload is None:
                 tmp_index_payload = np.zeros(self.read_size)
 
