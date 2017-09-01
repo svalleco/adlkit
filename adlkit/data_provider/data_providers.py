@@ -444,7 +444,7 @@ class FileDataProvider(AbstractDataProvider):
                                        read_batches_per_epoch=self.config.read_batches_per_epoch,
                                        **kwargs)
 
-            self.filler.daemon = True
+            # self.filler.daemon = True
             self.filler.start()
             return filler_id
         else:
@@ -478,7 +478,7 @@ class FileDataProvider(AbstractDataProvider):
                                                    cache_handles=self.config.cache_handles,
                                                    **kwargs)
 
-            self.readers[reader_id].daemon = True
+            # self.readers[reader_id].daemon = True
             self.readers[reader_id].start()
 
             return reader_id
@@ -531,7 +531,7 @@ class FileDataProvider(AbstractDataProvider):
                                          sleep_duration=self.config.sleep_duration,
                                          **kwargs)
 
-            self.watcher.daemon = True
+            # self.watcher.daemon = True
             self.watcher.start()
 
             return watcher_id

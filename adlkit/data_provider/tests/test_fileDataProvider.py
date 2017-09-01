@@ -39,7 +39,7 @@ class TestFileDataProvider(TestCase):
             mock_expected_malloc_requests
         mock_sample_specification = copy.deepcopy(mock_sample_specification)
         mock_expected_malloc_requests = copy.deepcopy(
-            mock_expected_malloc_requests)
+                mock_expected_malloc_requests)
 
         tmp_data_provider = FileDataProvider(mock_sample_specification,
                                              batch_size=100,
@@ -48,7 +48,6 @@ class TestFileDataProvider(TestCase):
 
         tmp_data_provider.start_queues()
         tmp_data_provider.start_filler(H5Filler)
-
 
         tmp_data_provider.process_malloc_requests()
 
@@ -61,7 +60,7 @@ class TestFileDataProvider(TestCase):
             mock_expected_malloc_requests
         mock_sample_specification = copy.deepcopy(mock_sample_specification)
         mock_expected_malloc_requests = copy.deepcopy(
-            mock_expected_malloc_requests)
+                mock_expected_malloc_requests)
 
         batch_size = 100
 
@@ -91,16 +90,16 @@ class TestFileDataProvider(TestCase):
         # check to make sure the shape matches out expected value
 
         self.assertEqual(
-            tmp_data_provider.shared_memory[worker_id][bucket][lock + 1][
-                data_set].shape, (100, 5),
-            "shared memory shape doesn't match")
+                tmp_data_provider.shared_memory[worker_id][bucket][lock + 1][
+                    data_set].shape, (100, 5),
+                "shared memory shape doesn't match")
 
     def test_filler_to_malloc(self):
         from adlkit.data_provider.tests.mock_config import mock_sample_specification, \
             mock_expected_malloc_requests
         mock_sample_specification = copy.deepcopy(mock_sample_specification)
         mock_expected_malloc_requests = copy.deepcopy(
-            mock_expected_malloc_requests)
+                mock_expected_malloc_requests)
 
         batch_size = 100
 
@@ -134,20 +133,20 @@ class TestFileDataProvider(TestCase):
 
         # Multiple Generator start and end locks
         self.assertEqual(
-            len(tmp_data_provider.shared_memory[worker_id][bucket]), 4,
-            "shared memory locks were not set correctly")
+                len(tmp_data_provider.shared_memory[worker_id][bucket]), 4,
+                "shared memory locks were not set correctly")
 
         # check to make sure all data sets were allocated
         self.assertEqual(
-            len(tmp_data_provider.shared_memory[worker_id][bucket][lock + 1]),
-            len(mock_expected_malloc_requests),
-            "shared memory data sets were not allocated correctly")
+                len(tmp_data_provider.shared_memory[worker_id][bucket][lock + 1]),
+                len(mock_expected_malloc_requests),
+                "shared memory data sets were not allocated correctly")
 
         # check to make sure the shape matches out expected value
         self.assertEqual(
-            tmp_data_provider.shared_memory[worker_id][bucket][lock + 1][
-                data_set].shape, (100, 5),
-            "shared memory shape doesn't match")
+                tmp_data_provider.shared_memory[worker_id][bucket][lock + 1][
+                    data_set].shape, (100, 5),
+                "shared memory shape doesn't match")
 
     def test_start_filler(self):
         from adlkit.data_provider.tests.mock_config import mock_sample_specification
@@ -182,12 +181,12 @@ class TestFileDataProvider(TestCase):
 
                     self.assertEquals(count, tmp_data_provider.config.read_size,
                                       "batch was returned with batch_size {0}, instead of batch_size {1}".format(
-                                          count,
-                                          tmp_data_provider.config.batch_size))
+                                              count,
+                                              tmp_data_provider.config.batch_size))
 
         self.assertEquals(len(out), max_batches,
                           "test consumed {0} of {1} expected batches from the in_queue".format(
-                              len(out), max_batches))
+                                  len(out), max_batches))
 
     def test_start_reader(self):
         from adlkit.data_provider.tests.mock_config import mock_sample_specification, \
@@ -195,7 +194,7 @@ class TestFileDataProvider(TestCase):
         mock_sample_specification = copy.deepcopy(mock_sample_specification)
         mock_batches = copy.deepcopy(mock_batches)
         mock_expected_malloc_requests = copy.deepcopy(
-            mock_expected_malloc_requests)
+                mock_expected_malloc_requests)
 
         tmp_data_provider = FileDataProvider(mock_sample_specification,
                                              batch_size=500,
@@ -244,7 +243,7 @@ class TestFileDataProvider(TestCase):
         # check that mock data successfully was processed
         self.assertEquals(len(out), max_batches,
                           "test consumed {0} of {1} expected batches from the out_queue".format(
-                              len(out), max_batches))
+                                  len(out), max_batches))
 
     def test_start_reader_one_hot(self):
         from adlkit.data_provider.tests.mock_config import mock_sample_specification, \
@@ -252,7 +251,7 @@ class TestFileDataProvider(TestCase):
         mock_sample_specification = copy.deepcopy(mock_sample_specification)
         mock_batches = copy.deepcopy(mock_batches)
         mock_expected_malloc_requests = copy.deepcopy(
-            mock_expected_malloc_requests)
+                mock_expected_malloc_requests)
 
         tmp_data_provider = FileDataProvider(mock_sample_specification,
                                              batch_size=500,
@@ -300,15 +299,16 @@ class TestFileDataProvider(TestCase):
         # check that mock data successfully was processed
         self.assertEquals(len(out), max_batches,
                           "test consumed {0} of {1} expected batches from the out_queue".format(
-                              len(out), max_batches))
+                                  len(out), max_batches))
 
     def test_generator(self):
         from adlkit.data_provider.tests.mock_config import mock_sample_specification, mock_batches, \
-            mock_expected_malloc_requests, mock_file_index_list
+            mock_expected_malloc_requests, mock_file_index_list, mock_class_index_map
         mock_sample_specification = copy.deepcopy(mock_sample_specification)
         mock_batches = copy.deepcopy(mock_batches)
         mock_expected_malloc_requests = copy.deepcopy(mock_expected_malloc_requests)
         mock_file_index_list = copy.deepcopy(mock_file_index_list)
+        mock_class_index_map = copy.deepcopy(mock_class_index_map)
 
         tmp_data_provider = FileDataProvider(mock_sample_specification,
                                              batch_size=500,
@@ -336,7 +336,8 @@ class TestFileDataProvider(TestCase):
                              read_size=tmp_data_provider.config.read_size,
                              max_batches=max_batches,
                              shared_memory_pointer=tmp_data_provider.shared_memory,
-                             file_index_list=mock_file_index_list)
+                             file_index_list=mock_file_index_list,
+                             class_index_map=mock_class_index_map)
 
         batch_size = tmp_data_provider.config.batch_size
         for _ in range(max_batches):
@@ -347,7 +348,8 @@ class TestFileDataProvider(TestCase):
 
     def test_generator_one_hot_and_class_index(self):
         from adlkit.data_provider.tests.mock_config import mock_sample_specification, \
-            mock_batches, mock_expected_malloc_requests, mock_file_index_list
+            mock_batches, mock_expected_malloc_requests, mock_file_index_list, mock_class_index_map
+        mock_class_index_map = copy.deepcopy(mock_class_index_map)
         mock_sample_specification = copy.deepcopy(mock_sample_specification)
         mock_batches = copy.deepcopy(mock_batches)
         mock_expected_malloc_requests = copy.deepcopy(mock_expected_malloc_requests)
@@ -380,7 +382,8 @@ class TestFileDataProvider(TestCase):
                              read_size=tmp_data_provider.config.read_size,
                              max_batches=max_batches,
                              shared_memory_pointer=tmp_data_provider.shared_memory,
-                             file_index_list=mock_file_index_list)
+                             file_index_list=mock_file_index_list,
+                             class_index_map=mock_class_index_map)
 
         count = 0
         for tmp in this.generate():
@@ -406,7 +409,8 @@ class TestFileDataProvider(TestCase):
                                              make_class_index=True,
                                              make_file_index=True,
                                              n_readers=4,
-                                             sleep_duration=sleep_duration)
+                                             sleep_duration=sleep_duration,
+                                             max_batches=max_batches)
 
         tmp_data_provider.start_queues()
         tmp_data_provider.start_filler(H5Filler)
@@ -417,7 +421,7 @@ class TestFileDataProvider(TestCase):
 
         # lg.debug("I am expecting to write to {0}".format(hex(id(tmp_data_provider.shared_memory[0][0][1][0]))))
 
-        generator_id = tmp_data_provider.start_generator(BaseGenerator, max_batches=max_batches)
+        generator_id = tmp_data_provider.start_generator(BaseGenerator)
 
         count = 0
         for tmp in tmp_data_provider.generators[generator_id].generate():
@@ -431,7 +435,7 @@ class TestFileDataProvider(TestCase):
 
         self.assertEqual(count, max_batches,
                          "we have a leaky generator here {0} != {1}".format(
-                             count, max_batches))
+                                 count, max_batches))
 
     def test_stop_queues(self):
         from adlkit.data_provider.tests.mock_config import mock_sample_specification
@@ -572,7 +576,7 @@ class TestFileDataProvider(TestCase):
         mock_read_batches = copy.deepcopy(mock_read_batches)
         mock_sample_specification = copy.deepcopy(mock_sample_specification)
         mock_expected_malloc_requests = copy.deepcopy(
-            mock_expected_malloc_requests)
+                mock_expected_malloc_requests)
 
         batch_size = 100
         max_batches = 5
@@ -621,33 +625,33 @@ class TestFileDataProvider(TestCase):
         for gen_count in gen_counter:
             self.assertEqual(gen_count, max_batches)
 
-    # def test_watcher_free(self):
-    #     import logging as lg
-    #
-    #     lg.basicConfig(level=lg.DEBUG)
-    #
-    #     import copy
-    #     from tests.mock_config import mock_sample_specification
-    #     from threaded_gen_two import FileDataProvider, BaseWatcher, BaseGenerator, H5Reader, H5Filler
-    #
-    #     mock_sample_specification = copy.deepcopy(mock_sample_specification)
-    #
-    #     batch_size = 100
-    #     max_batches = 5
-    #     n_generators = 5
-    #     tmp_data_provider = FileDataProvider(mock_sample_specification,
-    #                                          batch_size=batch_size,
-    #                                          read_multipler=2,
-    #                                          make_one_hot=True,
-    #                                          make_class_index=True,
-    #                                          n_readers=5,
-    #                                          n_generators=n_generators)
-    #
-    #     tmp_data_provider.start(filler_class=H5Filler,
-    #                             reader_class=H5Reader,
-    #                             generator_class=BaseGenerator,
-    #                             watcher_class=BaseWatcher)
-    #     for _ in range(100):
-    #         for generator_index in range(tmp_data_provider.config.n_generators):
-    #             tmp_data_provider.generators[generator_index].generate().next()
-    #             lg.debug(tmp_data_provider.shared_memory[0][0][2].value)
+            # def test_watcher_free(self):
+            #     import logging as lg
+            #
+            #     lg.basicConfig(level=lg.DEBUG)
+            #
+            #     import copy
+            #     from tests.mock_config import mock_sample_specification
+            #     from threaded_gen_two import FileDataProvider, BaseWatcher, BaseGenerator, H5Reader, H5Filler
+            #
+            #     mock_sample_specification = copy.deepcopy(mock_sample_specification)
+            #
+            #     batch_size = 100
+            #     max_batches = 5
+            #     n_generators = 5
+            #     tmp_data_provider = FileDataProvider(mock_sample_specification,
+            #                                          batch_size=batch_size,
+            #                                          read_multipler=2,
+            #                                          make_one_hot=True,
+            #                                          make_class_index=True,
+            #                                          n_readers=5,
+            #                                          n_generators=n_generators)
+            #
+            #     tmp_data_provider.start(filler_class=H5Filler,
+            #                             reader_class=H5Reader,
+            #                             generator_class=BaseGenerator,
+            #                             watcher_class=BaseWatcher)
+            #     for _ in range(100):
+            #         for generator_index in range(tmp_data_provider.config.n_generators):
+            #             tmp_data_provider.generators[generator_index].generate().next()
+            #             lg.debug(tmp_data_provider.shared_memory[0][0][2].value)
