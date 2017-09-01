@@ -3,6 +3,7 @@ import logging as lg
 import multiprocessing
 import time
 
+import billiard
 import numpy as np
 
 from .config import STOP_MESSAGE
@@ -26,7 +27,7 @@ class WorkerError(Exception):
 #         except WorkerError:
 
 
-class Worker(multiprocessing.Process):
+class Worker(billiard.Process):
     def __init__(self, worker_id, control_queue_depth=1, sleep_duration=1,
                  **kwargs):
         super(Worker, self).__init__()
