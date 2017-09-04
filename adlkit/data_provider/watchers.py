@@ -45,7 +45,7 @@ class BaseWatcher(Worker):
             try:
                 read_batch = self.out_queue.get(timeout=1)
                 if read_batch is not None:
-                    self.info("out_queue_get_wait_time={0}".format(time.time()
+                    self.debug("out_queue_get_wait_time={0}".format(time.time()
                                                                    - out_queue_get_wait_time))
                     start_time = time.time()
                     try:
@@ -54,7 +54,7 @@ class BaseWatcher(Worker):
 
                     except ValueError:
                         pass
-                    self.info("multicast_put_wait_time={0} ".format(time.time() - start_time))
+                    self.debug("multicast_put_wait_time={0} ".format(time.time() - start_time))
                     self.batch_count += 1
                     out_queue_get_wait_time = time.time()
 
@@ -72,7 +72,7 @@ class BaseWatcher(Worker):
                             bucket[0].value = 0
                             bucket[2].value = 0
                             bucket[3].value = 0
-            self.info(" bucket_watch_time={0} ".format(time.time() - start_time))
+            self.debug(" bucket_watch_time={0} ".format(time.time() - start_time))
 
             # self.sleep()
             # time.sleep(self.sleep_duration)

@@ -87,12 +87,12 @@ class BaseReader(Worker):
             if batch is not None:
                 # self.info("in_queue_get_wait_time={0} in_queue_size={1}".format(time.time() - in_queue_time,
                 # self.in_queue.qsize()))
-                self.info("in_queue_get_wait_time={0}".format(
+                self.debug("in_queue_get_wait_time={0}".format(
                         time.time() - in_queue_time))
                 start_time = time.time()
                 self.debug("starting to prepare batch")
                 data_pointer = self.process_batch(batch)
-                self.info(
+                self.debug(
                         "process_batch_time={0}".format(time.time() - start_time))
 
                 if data_pointer is None:
@@ -112,7 +112,7 @@ class BaseReader(Worker):
                         # self.debug("out_queue is full, sleeping")
                         self.sleep()
 
-                self.info(
+                self.debug(
                         "batch_read_time={0} out_queue_put_wait_time={1}".format(
                                 time.time() - start_time, time.time() - wait_time))
                 # self.info("batch_read_time={0} out_queue_put_wait_time={1} out_queue_size={2}".format(time.time() -
@@ -145,7 +145,7 @@ class BaseReader(Worker):
                 with bucket[0].get_lock():
                     if bucket[0].value == 0:
                         bucket[0].value = 1
-                        self.info(
+                        self.debug(
                                 "bucket_seek_time={0} bucket_index={1}".format(
                                         time.time() - start_time, bucket_index))
                         return bucket_index
@@ -243,7 +243,7 @@ class H5Reader(BaseReader):
                     # payloads[data_set][read_index] = np.take(h5_file_handle[data_set], read_descriptor, axis=0)
                     payloads[data_set][read_index] = h5_file_handle[data_set][read_descriptor]
 
-            self.info("h5_to_payloads_time={0} read_index={1} batch_id={2}".format(time.time() - h5_to_payloads_time,
+            self.debug("h5_to_payloads_time={0} read_index={1} batch_id={2}".format(time.time() - h5_to_payloads_time,
                                                                                    read_index,
                                                                                    batch_id))
 
@@ -277,7 +277,7 @@ class H5Reader(BaseReader):
             if not self.cache_handles:
                 h5_file_handle.close()
 
-        self.info("payloads_build_time={0} batch_id={1}".format(
+        self.debug("payloads_build_time={0} batch_id={1}".format(
                 time.time() - payloads_build_time, batch_id))
 
         concat_time = time.time()
@@ -289,7 +289,7 @@ class H5Reader(BaseReader):
                 print(payloads[data_set])
                 raise ValueError(e)
 
-        self.info(
+        self.debug(
                 "concat_time={0} batch_id={1}".format(time.time() - concat_time,
                                                       batch_id))
 
@@ -308,7 +308,7 @@ class H5Reader(BaseReader):
         if self.process_function is not None:
             # print('using process function')
             payloads = self.process_function(payloads)
-            self.info("process_function_time={0} batch_id={1}".format(
+            self.debug("process_function_time={0} batch_id={1}".format(
                     time.time() - process_time, batch_id))
         else:
             payloads = payloads.values()
@@ -329,7 +329,7 @@ class H5Reader(BaseReader):
             for data_set_index, payload in enumerate(payloads):
                 self.shared_memory_pointer[bucket_index][1][data_set_index][...] = np.copy(payload)
 
-            self.info("store_in_shared_time={0} batch_id={1}".format(
+            self.debug("store_in_shared_time={0} batch_id={1}".format(
                     time.time() - store_in_shared_time, batch_id))
             return self.worker_id - READER_OFFSET, bucket_index, data_sets, batch_id
         else:

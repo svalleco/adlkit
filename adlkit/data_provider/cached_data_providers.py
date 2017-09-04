@@ -8,8 +8,7 @@ import numpy as np
 from adlkit.data_provider import H5FileDataProvider
 
 
-# TODO - wghilliard
-# refactor this
+# TODO - wghilliard - refactor this
 
 
 class GeneratorCacher(object):
@@ -117,10 +116,10 @@ class GeneratorCacher(object):
                         self.cachefilename = found
                     else:
                         self.cachefilename = self.cachefilename.strip(".h5") + "-" + str(
-                            self.max) + "-PID" + str(os.getppid()) + ".h5"
+                                self.max) + "-PID" + str(os.getppid()) + ".h5"
             else:
                 self.cachefilename = "/tmp/" + os.environ["USER"] + "-" + str(
-                    os.getppid()) + "-" + str(int(10000 * random.random())) + ".h5"
+                        os.getppid()) + "-" + str(int(10000 * random.random())) + ".h5"
 
         while not Done:
             if not self.preloaded:

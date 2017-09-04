@@ -79,9 +79,9 @@ class BaseGenerator(Worker):
                 self.sleep()
             finally:
                 if read_batch is not None:
-                    self.info(
+                    self.debug(
                             "multi_or_out_queue_get_wait_time={0}".format(time.time() - start_time))
-                    # self.info("multi_or_out_queue_get_wait_time={0} queue_size={1}".format(
+                    # self.debug("multi_or_out_queue_get_wait_time={0} queue_size={1}".format(
                     # time.time() - start_time, self.out_queue.qsize()))
                     self.debug("successfully got a read_batch from the out_queue")
                     try:
@@ -126,7 +126,7 @@ class BaseGenerator(Worker):
 
                         self.debug(
                                 "successfully delivered a batch, continuing from generator yield")
-                        self.info("yield_wait_time={0}".format(time.time() - yield_wait_time))
+                        self.debug("yield_wait_time={0}".format(time.time() - yield_wait_time))
                         self.batch_count += 1
 
         self.debug("exiting...")

@@ -303,7 +303,7 @@ class FileDataProvider(AbstractDataProvider):
 
         if malloc_requests is not None:
             self.malloc_requests.extend(malloc_requests)
-        self.info("malloc_wait_time={0}".format(time.time() - malloc_wait_time))
+        self.debug("malloc_wait_time={0}".format(time.time() - malloc_wait_time))
 
     def make_shared_malloc(self, in_reader_id):
         """
@@ -403,7 +403,7 @@ class FileDataProvider(AbstractDataProvider):
             raise ValueError("n_generators most likely isn't set correctly")
 
         self.is_started = True
-        self.info("start_time={0}".format(time.time() - start_time))
+        self.debug("start_time={0}".format(time.time() - start_time))
 
     def start_filler(self, filler_class, shape_reader_class=None, **kwargs):
         shape_reader = None

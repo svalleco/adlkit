@@ -64,7 +64,7 @@ class BaseFiller(Worker):
             start_time = time.time()
             self.debug("start build_batch")
             batch = self.build_batch()
-            self.info("build_batch_time={0}".format(time.time() - start_time))
+            self.debug("build_batch_time={0}".format(time.time() - start_time))
 
             if batch is None:
                 return False
@@ -82,7 +82,7 @@ class BaseFiller(Worker):
                     self.debug("in_queue is full, sleeping")
                     self.sleep()
 
-            self.info(
+            self.debug(
                     "batch_fill_time={0} in_queue_put_wait_time={1}".format(time.time() - start_time,
                                                                             time.time() - in_queue_put_wait_time))
             self.batch_count += 1
@@ -257,7 +257,7 @@ class H5Filler(BaseFiller):
                         tmp_filter_index_list = range(
                                 h5_file_handle[tmp_class_holder["data_set_names"][0]].shape[0])
 
-                    self.info("filter_function_time={0}".format(time.time() - filter_time))
+                    self.debug("filter_function_time={0}".format(time.time() - filter_time))
 
                     tmp_class_holder['current_file_indices'] = sorted(tmp_filter_index_list)
 
