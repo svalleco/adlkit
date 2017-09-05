@@ -327,7 +327,13 @@ class H5Reader(BaseReader):
         if store_in_shared:
             store_in_shared_time = time.time()
             for data_set_index, payload in enumerate(payloads):
-                self.shared_memory_pointer[bucket_index][1][data_set_index][...] = np.copy(payload)
+                try:
+                    self.shared_memory_pointer[bucket_index][1][data_set_index][...] = np.copy(payload)
+                except TypeError as e:
+                    self.critical(e)
+                    self.critical("HELP!> SHARED MEMORY FAILED, bucket_index={} data_set_index={} payload={}".format(bucket_index,
+                                                                                                                     data_set_index,
+                                                                                                                     payload))
 
             self.debug("store_in_shared_time={0} batch_id={1}".format(
                     time.time() - store_in_shared_time, batch_id))
