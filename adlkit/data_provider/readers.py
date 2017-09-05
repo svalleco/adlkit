@@ -244,8 +244,8 @@ class H5Reader(BaseReader):
                     payloads[data_set][read_index] = h5_file_handle[data_set][read_descriptor]
 
             self.debug("h5_to_payloads_time={0} read_index={1} batch_id={2}".format(time.time() - h5_to_payloads_time,
-                                                                                   read_index,
-                                                                                   batch_id))
+                                                                                    read_index,
+                                                                                    batch_id))
 
             if tmp_index_payload is None:
                 tmp_index_payload = np.zeros(self.read_size)
@@ -331,22 +331,25 @@ class H5Reader(BaseReader):
                     self.shared_memory_pointer[bucket_index][1][data_set_index][...] = np.copy(payload)
                 except TypeError as e:
                     self.critical(e)
-                    self.critical("HELP!> SHARED MEMORY FAILED, bucket_index={} data_set_index={} payload={}".format(bucket_index,
-                                                                                                                     data_set_index,
-                                                                                                                     payload))
+                    self.critical(
+                            "HELP!> SHARED MEMORY FAILED, bucket_index={} data_set_index={} batch={} payload={}".format(
+                                    bucket_index,
+                                    data_set_index,
+                                    batch,
+                                    payload))
 
-            self.debug("store_in_shared_time={0} batch_id={1}".format(
-                    time.time() - store_in_shared_time, batch_id))
-            return self.worker_id - READER_OFFSET, bucket_index, data_sets, batch_id
-        else:
-            return payloads
+                self.debug("store_in_shared_time={0} batch_id={1}".format(
+                        time.time() - store_in_shared_time, batch_id))
+                return self.worker_id - READER_OFFSET, bucket_index, data_sets, batch_id
+            else:
+                return payloads
 
-    def shuffle_in_unison_inplace(self, payloads):
-        shuffle_list = np.random.permutation(self.read_size)
+        def shuffle_in_unison_inplace(self, payloads):
+            shuffle_list = np.random.permutation(self.read_size)
 
-        out = []
-        for payload in payloads:
-            assert self.read_size == len(payload)
-            out.append(payload[shuffle_list])
+            out = []
+            for payload in payloads:
+                assert self.read_size == len(payload)
+                out.append(payload[shuffle_list])
 
-        return out
+            return out
