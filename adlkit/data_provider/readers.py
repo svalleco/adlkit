@@ -330,14 +330,14 @@ class H5Reader(BaseReader):
                 try:
                     self.shared_memory_pointer[bucket_index][1][data_set_index][...] = np.copy(payload)
                 except TypeError as e:
-                    self.critical(e)
+                    self.critical(e.message)
                     self.critical(
-                        "HELP!> SHARED MEMORY FAILED, bucket_index={} data_set_index={} batch={} payload={}".format(
-                            bucket_index,
-                            data_set_index,
-                            batch,
-                            payload))
-
+                            "HELP!> SHARED MEMORY FAILED, bucket_index={} data_set_index={} batch={} payload={}".format(
+                                    bucket_index,
+                                    data_set_index,
+                                    batch,
+                                    payload))
+                    
             self.debug("store_in_shared_time={0} batch_id={1}".format(
                     time.time() - store_in_shared_time, batch_id))
             return self.worker_id - READER_OFFSET, bucket_index, data_sets, batch_id
