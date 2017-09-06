@@ -689,3 +689,13 @@ class H5FileDataProvider(FileDataProvider):
         super(H5FileDataProvider, self).start(H5Filler, H5Reader, BaseGenerator,
                                               shape_reader_class=H5Reader,
                                               **kwargs)
+
+
+class WatchedH5FileDataProvider(FileDataProvider):
+    def start(self, **kwargs):
+        super(WatchedH5FileDataProvider, self).start(H5Filler, H5Reader, BaseGenerator,
+                                                     watcher_class=BaseWatcher,
+                                                     shape_reader_class=H5Reader, **kwargs)
+        # super(H5FileDataProvider, self).start(H5Filler, H5Reader, BaseGenerator,
+        #                                       shape_reader_class=H5Reader,
+        #                                       **kwargs)
