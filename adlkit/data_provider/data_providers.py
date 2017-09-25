@@ -5,6 +5,7 @@ import multiprocessing
 import signal
 import time
 
+import billiard
 import numpy as np
 from abc import ABCMeta, abstractmethod
 
@@ -536,16 +537,16 @@ class FileDataProvider(AbstractDataProvider):
             return None
 
     def start_queues(self):
-        self.in_queue = multiprocessing.Queue(
+        self.in_queue = billiard.Queue(
                 maxsize=self.config.q_multipler * self.config.n_readers)
-        self.out_queue = multiprocessing.Queue(
+        self.out_queue = billiard.Queue(
                 maxsize=self.config.q_multipler * self.config.n_readers)
-        self.malloc_queue = multiprocessing.Queue(
+        self.malloc_queue = billiard.Queue(
                 maxsize=self.config.q_multipler * self.config.n_readers)
 
         for _ in range(self.config.n_generators):
             self.multicast_queues.append(
-                    multiprocessing.Queue(maxsize=self.config.q_multipler * self.config.n_readers))
+                    billiard.Queue(maxsize=self.config.q_multipler * self.config.n_readers))
             # multiprocessing.Queue(maxsize=self.config.q_multipler * self.config.n_readers))
 
     def stop_queues(self):
