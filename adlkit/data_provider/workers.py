@@ -26,7 +26,6 @@ class WorkerError(Exception):
 #             run_function()
 #         except WorkerError:
 
-
 class Worker(billiard.Process):
     def __init__(self, worker_id, control_queue_depth=1, sleep_duration=1,
                  **kwargs):

@@ -65,6 +65,13 @@ class BaseReader(Worker):
                 " reader_id={0} reader_batch_id={1} ".format(self.worker_id,
                                                              self.batch_count) + message)
 
+    def error(self, message):
+        if isinstance(message, list):
+            message = " ".join(message)
+        reader_logger.error(
+                " reader_id={0} reader_batch_id={1} ".format(self.worker_id,
+                                                             self.batch_count) + message)
+
     def run(self, **kwargs):
         self.read()
 
@@ -140,16 +147,23 @@ class BaseReader(Worker):
     def find_bucket(self):
         self.debug("attempting to find a bucket")
         start_time = time.time()
-        while not self.should_stop():
-            for bucket_index, bucket in enumerate(self.shared_memory_pointer):
-                with bucket[0].get_lock():
-                    if bucket[0].value == 0:
-                        bucket[0].value = 1
-                        self.debug(
-                                "bucket_seek_time={0} bucket_index={1}".format(
-                                        time.time() - start_time, bucket_index))
-                        return bucket_index
-            self.sleep()
+        try:
+            while not self.should_stop():
+                for bucket_index, bucket in enumerate(self.shared_memory_pointer):
+                    with bucket[0].get_lock():
+                        if bucket[0].value == 0:
+                            bucket[0].value = 1
+                            self.debug(
+                                    "bucket_seek_time={0} bucket_index={1}".format(
+                                            time.time() - start_time, bucket_index))
+                            assert bucket_index is not None
+                            return bucket_index
+                self.sleep()
+        except Exception as e:
+            self.error("cannot get a bucket")
+            self.error(e)
+            raise_from(Exception(e), e)
+        return None
 
 
 class H5Reader(BaseReader):
@@ -186,6 +200,7 @@ class H5Reader(BaseReader):
         batch_id = 0
         if store_in_shared:
             bucket_index = self.find_bucket()
+            assert isinstance(bucket_index, int)
         else:
             bucket_index = 0
         data_sets = list()
@@ -332,12 +347,15 @@ class H5Reader(BaseReader):
                 except TypeError as e:
                     self.critical(e.message)
                     self.critical(
-                            "HELP!> SHARED MEMORY FAILED, bucket_index={} data_set_index={} batch={} payload={}".format(
+                            "HELP!> SHARED MEMORY FAILED, bucket_index={0} data_set_index={1} batch={2} payload={"
+                            "3}".format(
                                     bucket_index,
                                     data_set_index,
                                     batch,
                                     payload))
-                    
+
+                    # sys.exit(1)
+
             self.debug("store_in_shared_time={0} batch_id={1}".format(
                     time.time() - store_in_shared_time, batch_id))
             return self.worker_id - READER_OFFSET, bucket_index, data_sets, batch_id

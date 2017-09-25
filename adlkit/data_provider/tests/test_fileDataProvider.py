@@ -6,8 +6,9 @@ from __future__ import absolute_import
 import Queue
 import copy
 import logging as lg
-import os
 from unittest import TestCase
+
+import os
 
 from adlkit.data_provider.data_providers import FileDataProvider
 from adlkit.data_provider.fillers import H5Filler
@@ -15,10 +16,10 @@ from adlkit.data_provider.generators import BaseGenerator
 from adlkit.data_provider.readers import H5Reader
 from adlkit.data_provider.watchers import BaseWatcher
 
-lg.basicConfig(level=lg.INFO, format='%(asctime)s %(levelname)s %(name)s %(message)s ')
+lg.basicConfig(level=lg.DEBUG, format='%(asctime)s %(levelname)s %(name)s %(message)s ')
 test_logger = lg.getLogger('data_provider.tests')
 
-sleep_duration = None
+sleep_duration = 0.05
 
 
 class TestFileDataProvider(TestCase):
@@ -498,12 +499,16 @@ class TestFileDataProvider(TestCase):
 
         tmp_data_provider = FileDataProvider(mock_sample_specification,
                                              batch_size=batch_size,
-                                             read_multiplier=2,
+                                             read_batches_per_epoch=1000,
+                                             read_multiplier=1,
                                              make_one_hot=True,
                                              make_class_index=True,
                                              wrap_examples=True,
-                                             n_readers=4,
-                                             sleep_duration=1)
+                                             n_readers=5,
+                                             n_buckets=2,
+                                             q_multipler=3,
+                                             sleep_duration=sleep_duration
+                                             )
 
         tmp_data_provider.start(filler_class=H5Filler,
                                 reader_class=H5Reader,
@@ -511,6 +516,7 @@ class TestFileDataProvider(TestCase):
         generator_id = 0
 
         for _ in range(100):
+        # for _ in range(10000000):
             tmp = tmp_data_provider.generators[generator_id].generate().next()
             # TODO better checks
             self.assertEqual(len(tmp), 4)
