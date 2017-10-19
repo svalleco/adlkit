@@ -60,8 +60,8 @@ class H5DataIODriver(DataIODriver):
         else:
             return h5py.File(descriptor, 'r')
 
-    def close(self, descriptor, handle):
-        if not self.cache_handles:
+    def close(self, descriptor, handle, force=False):
+        if not self.cache_handles or force:
             if descriptor not in self.file_handle_holder:
                 handle.close()
             else:

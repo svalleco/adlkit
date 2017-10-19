@@ -91,6 +91,97 @@ class TestFileReader(TestCase):
                                   len(out),
                                   max_batches))
 
+    def test_file_caching(self):
+
+        """
+        max_batches and batch_size are directly correlated to test input data
+
+        make sure gen_rand_data has the correct shape
+
+        :return:
+        """
+
+        from mock_config import mock_batches, mock_expected_malloc_requests, \
+            mock_class_index_map, mock_file_index_list
+
+        mock_batches = copy.deepcopy(mock_batches)
+        mock_expected_malloc_requests = copy.deepcopy(mock_expected_malloc_requests)
+        mock_class_index_map = copy.deepcopy(mock_class_index_map)
+
+        max_batches = len(mock_batches)
+        batch_size = 500
+        read_size = 2 * batch_size
+        bucket_length = 10
+        in_queue = multiprocessing.Queue(maxsize=max_batches)
+        out_queue = multiprocessing.Queue(maxsize=max_batches)
+
+        # building queue up with read requests
+        for batch in mock_batches:
+            try:
+                in_queue.put(batch, timeout=1)
+            except Queue.Full:
+                pass
+
+        reader_id = 0
+
+        shared_data_pointer = range(bucket_length)
+
+        for bucket in shared_data_pointer:
+            data_sets = []
+            for request in mock_expected_malloc_requests:
+                # reshape the requested shape to match the batch_size
+                shape = (read_size,) + request[1]
+
+                shared_array_base = multiprocessing.Array(ctypes.c_double, np.prod(shape),
+                                                          lock=False)
+                shared_array = np.ctypeslib.as_array(shared_array_base)
+                shared_array = shared_array.reshape(shape)
+                data_sets.append(shared_array)
+
+            state = multiprocessing.Value('i', 0)
+            generator_start_counter = multiprocessing.Value('i', 0)
+            generator_end_counter = multiprocessing.Value('i', 0)
+            shared_data_pointer[bucket] = [state, data_sets, generator_start_counter,
+                                           generator_end_counter]
+
+        reader = FileReader(worker_id=reader_id, in_queue=in_queue, out_queue=out_queue,
+                            shared_memory_pointer=shared_data_pointer,
+                            max_batches=max_batches, read_size=read_size,
+                            class_index_map=mock_class_index_map,
+                            file_index_list=mock_file_index_list,
+                            io_driver=H5DataIODriver({"cache_handles": True}))
+
+        reader.read()
+
+        out = list()
+        for _ in range(max_batches):
+            batch = None
+            try:
+                batch = out_queue.get(timeout=1)
+            except Queue.Empty:
+                pass
+            finally:
+                if batch is not None:
+                    out.append(batch)
+
+        self.assertEquals(len(out), max_batches,
+                          "test consumed {0} of {1} expected batches from the in_queue".format(
+                                  len(out),
+                                  max_batches))
+
+        target = 0
+        self.assertGreater(len(reader.io_driver.file_handle_holder), 0)
+        for handle in reader.io_driver.file_handle_holder:
+            # Here we try to close the file again, this will raise an Exception and thus means the caching cleaned up
+            # successfully. if 0 then we closed everything successfully with the __exit__ function
+            target += 1
+            try:
+                handle.close()
+            except Exception:
+                target -= 1
+
+        self.assertEqual(target, 0)
+
     def test_read_one_hot(self):
         from mock_config import mock_batches, mock_expected_malloc_requests, \
             mock_class_index_map, mock_one_hot, mock_file_index_list
