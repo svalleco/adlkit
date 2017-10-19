@@ -2,7 +2,6 @@ import Queue
 import copy
 import logging as lg
 import time
-from collections import OrderedDict
 
 import h5py
 from numpy import random
@@ -105,22 +104,8 @@ class H5Filler(BaseFiller):
                  skip=0,
                  wrap_examples=False,
                  shape_reader=None,
+                 cache_handles=False,
                  **kwargs):
-        """
-
-        :param list_of_file_names: list()
-            fully specified file_name paths
-
-        :param list_of_data_sets:  list()
-
-        :param batch_size: int()
-
-        :param skip: int()
-
-        :param kwargs:
-
-
-        """
 
         super(H5Filler, self).__init__(in_queue=in_queue,
                                        worker_id=worker_id,
@@ -150,9 +135,9 @@ class H5Filler(BaseFiller):
         self.filler_id = self.worker_id - FILLER_OFFSET
 
         self.file_index_list = file_index_list
-        self.file_counter = OrderedDict()
 
         self.report = True
+        self.cache_handles = cache_handles
 
     def inform_data_provider(self, data_sets, batch):
         malloc_requests = list()
@@ -233,11 +218,12 @@ class H5Filler(BaseFiller):
                                 file_name])
 
                     # TODO make a switch that can either use `with` or self.file_handle_holder
-                    if file_name in self.file_handle_holder:
+                    if self.cache_handles and file_name in self.file_handle_holder:
                         h5_file_handle = self.file_handle_holder[file_name]
+                    elif self.cache_handles:
+                        h5_file_handle = self.file_handle_holder[file_name] = h5py.File(file_name, 'r')
                     else:
-                        h5_file_handle = self.file_handle_holder[file_name] = h5py.File(file_name,
-                                                                                        'r')
+                        h5_file_handle = h5py.File(file_name, 'r')
 
                     for data_set in tmp_class_holder['data_set_names']:
                         if data_set not in tmp_data_set_tracker:

@@ -1,13 +1,13 @@
 import Queue
 import ctypes
-import gc
 import logging as lg
 import multiprocessing
 import signal
 import time
-from abc import ABCMeta, abstractmethod
 
+import billiard
 import numpy as np
+from abc import ABCMeta, abstractmethod
 
 from .config import ConfigurableObject, STOP_MESSAGE
 from .fillers import BaseFiller, H5Filler
@@ -131,13 +131,15 @@ class FileDataProvider(AbstractDataProvider):
 
             # The amount of time a worker should sleep if they are blocked by resource constraints.
             # This is used with os.sleep so either a float or an int should work.
-            'sleep_duration'        : 1,
+            'sleep_duration'        : 0.5,
 
             # If the rows should be shuffled on a per-batch basis.
             'shuffle'               : True,
 
-            # If the reader should cache the file handles or close files after reading.
-            'cache_handles'         : True,
+            # If the workers should cache the file handles or close files after reading.
+            # NOTE: File handle caching can cause undesired memory allocation.
+            'cache_reader_handles'  : True,
+            'cache_filler_handles'  : False,
 
             # The number of batches a filler should create before resetting.
             'read_batches_per_epoch': None
@@ -442,9 +444,10 @@ class FileDataProvider(AbstractDataProvider):
                                        filter_function=self.config.filter_function,
                                        sleep_duration=self.config.sleep_duration,
                                        read_batches_per_epoch=self.config.read_batches_per_epoch,
+                                       cache_handles=self.config.cache_filler_handles,
                                        **kwargs)
 
-            # self.filler.daemon = True
+            self.filler.daemon = True
             self.filler.start()
             return filler_id
         else:
@@ -475,10 +478,10 @@ class FileDataProvider(AbstractDataProvider):
                                                    process_function=self.config.process_function,
                                                    sleep_duration=self.config.sleep_duration,
                                                    shuffle=self.config.shuffle,
-                                                   cache_handles=self.config.cache_handles,
+                                                   cache_handles=self.config.cache_reader_handles,
                                                    **kwargs)
 
-            # self.readers[reader_id].daemon = True
+            self.readers[reader_id].daemon = True
             self.readers[reader_id].start()
 
             return reader_id
@@ -498,11 +501,6 @@ class FileDataProvider(AbstractDataProvider):
             else:
                 out_queue = self.multicast_queues[generator_id]
                 watched = True
-
-            # out_queue,
-            # batch_size,
-            # shared_memory_pointer,
-            # file_index_list,
 
             self.generators[generator_id] = generator_class(
                     out_queue=out_queue,
@@ -531,7 +529,7 @@ class FileDataProvider(AbstractDataProvider):
                                          sleep_duration=self.config.sleep_duration,
                                          **kwargs)
 
-            # self.watcher.daemon = True
+            self.watcher.daemon = True
             self.watcher.start()
 
             return watcher_id
@@ -539,17 +537,17 @@ class FileDataProvider(AbstractDataProvider):
             return None
 
     def start_queues(self):
-        self.in_queue = multiprocessing.Queue(
+        self.in_queue = billiard.Queue(
                 maxsize=self.config.q_multipler * self.config.n_readers)
-        self.out_queue = multiprocessing.Queue(
+        self.out_queue = billiard.Queue(
                 maxsize=self.config.q_multipler * self.config.n_readers)
-        self.malloc_queue = multiprocessing.Queue(
+        self.malloc_queue = billiard.Queue(
                 maxsize=self.config.q_multipler * self.config.n_readers)
 
         for _ in range(self.config.n_generators):
             self.multicast_queues.append(
-                    # multiprocessing.Queue(maxsize=self.config.q_multipler * self.config.n_generators))
-                    multiprocessing.Queue(maxsize=self.config.q_multipler * self.config.n_readers))
+                    billiard.Queue(maxsize=self.config.q_multipler * self.config.n_readers))
+            # multiprocessing.Queue(maxsize=self.config.q_multipler * self.config.n_readers))
 
     def stop_queues(self):
         try:
@@ -590,8 +588,8 @@ class FileDataProvider(AbstractDataProvider):
             except Exception as e:
                 data_provider_logger.debug(e)
 
-        # if self.watcher:
-        #     self.watcher.s
+        if self.watcher is not None:
+            self.stop_watcher()
 
         self.drain_queues()
         self.stop_queues()
@@ -614,10 +612,12 @@ class FileDataProvider(AbstractDataProvider):
                 data_provider_logger.debug(e)
 
         # attempting to free memory, according to the internet, this may or may not actually work.
-        del self.shared_memory
-        gc.collect()
-
+        # del self.shared_memory
+        # gc.collect()
         self.is_started = False
+
+    def stop_watcher(self):
+        self.watcher.send_command(STOP_MESSAGE)
 
     def drain_queues(self):
         while True:
@@ -686,6 +686,19 @@ class H5FileDataProvider(FileDataProvider):
     def start(self, **kwargs):
         # super(H5FileDataProvider, self).start(H5Filler, H5Reader, BaseGenerator, watcher_class=BaseWatcher,
         # shape_reader_class=H5Reader, **kwargs)
+        # super(H5FileDataProvider, self).start(H5Filler, H5Reader, BaseGenerator,
+        #                                       shape_reader_class=H5Reader,
+        #                                       **kwargs)
         super(H5FileDataProvider, self).start(H5Filler, H5Reader, BaseGenerator,
                                               shape_reader_class=H5Reader,
                                               **kwargs)
+
+
+class WatchedH5FileDataProvider(FileDataProvider):
+    def start(self, **kwargs):
+        super(WatchedH5FileDataProvider, self).start(H5Filler, H5Reader, BaseGenerator,
+                                                     watcher_class=BaseWatcher,
+                                                     shape_reader_class=H5Reader, **kwargs)
+        # super(H5FileDataProvider, self).start(H5Filler, H5Reader, BaseGenerator,
+        #                                       shape_reader_class=H5Reader,
+        #                                       **kwargs)

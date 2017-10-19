@@ -48,7 +48,6 @@ class BaseGenerator(Worker):
 
     def generate(self):
         self.batch_count = 0
-
         while not self.should_stop() or (
                         self.max_batches is not None and self.batch_count >= self.max_batches):
             # Cleaning up
@@ -56,6 +55,9 @@ class BaseGenerator(Worker):
                 self.debug("attempting to get lock to release buckets")
                 if self.watched:
                     with self.shared_memory_pointer[self.last_reader_index][self.last_bucket_index][3].get_lock():
+                        # self.debug("setting bucket3 to {}".format(
+                        #         self.shared_memory_pointer[self.last_reader_index][self.last_bucket_index][
+                        #             3].value + 1))
                         self.shared_memory_pointer[self.last_reader_index][self.last_bucket_index][3].value += 1
                 else:
                     with self.shared_memory_pointer[self.last_reader_index][self.last_bucket_index][0].get_lock():
@@ -91,6 +93,9 @@ class BaseGenerator(Worker):
 
                     if self.watched:
                         with self.shared_memory_pointer[reader_id][bucket_index][2].get_lock():
+                            self.debug("writing ahead reader_id={} bucket_index={}".format(reader_id, bucket_index))
+                            # self.debug("setting bucket2 to {}".format(
+                            #         self.shared_memory_pointer[reader_id][bucket_index][2].value + 1))
                             self.shared_memory_pointer[reader_id][bucket_index][2].value += 1
 
                     payload = self.shared_memory_pointer[reader_id][bucket_index][1]
@@ -101,8 +106,7 @@ class BaseGenerator(Worker):
                     for batch_index in range(0, len(payload[0]), self.batch_size):
                         batch = range(len(payload))
                         for data_set_index, data_set in enumerate(payload):
-                            batch[data_set_index] = data_set[
-                                                    batch_index:batch_index + self.batch_size]
+                            batch[data_set_index] = data_set[batch_index:batch_index + self.batch_size]
 
                         # generators get caught in this loop so redundant checks are necessary
                         # using that De Morgans law yo

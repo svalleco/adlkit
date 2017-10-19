@@ -31,7 +31,7 @@ class GeneratorCacher(object):
 
     def __del__(self):
         if self.deletecachefile:
-            print "Removing Cache File:", self.cachefilename
+            print("Removing Cache File:", self.cachefilename)
             os.remove(self.cachefilename)
 
     def PreloadGenerator(self):
@@ -56,8 +56,8 @@ class GeneratorCacher(object):
                         try:
                             self.D[j][i:i + T.shape[0]] = T
                         except:
-                            print "Something went wrong..."
-                            print i, j, T.shape, D[j].shape
+                            print("Something went wrong...")
+                            print(i, j, T.shape, D[j].shape)
 
                     i += self.batchsize
                     batchN += 1
@@ -70,7 +70,7 @@ class GeneratorCacher(object):
                         yield list(D)
                 self.preloaded = True
             else:
-                for i in xrange(0, self.max, self.batchsize):
+                for i in range(0, self.max, self.batchsize):
                     out = []
                     for d in self.D:
                         if i + self.batchsize >= self.max:
@@ -176,7 +176,7 @@ class GeneratorCacher(object):
                 secondpass = True
                 dsetnames = []
 
-                for j in xrange(len(h5py.File(self.cachefilename, "r").keys())):
+                for j in range(len(h5py.File(self.cachefilename, "r").keys())):
                     dsetnames.append("dset" + str(j))
 
                 def PassThrough(payload):
@@ -222,7 +222,8 @@ class GeneratorCacher(object):
 
         if not self.preloaded:
             for D in gen:
-                print ".",
+                print
+                ".",
                 NBatches += 1
                 if NBatches >= MaxBatches:
                     break
@@ -233,7 +234,8 @@ class GeneratorCacher(object):
 
         if not self.preloaded:
             for D in gen:
-                print ".",
+                print
+                ".",
                 pass
             print
 
