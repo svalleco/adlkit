@@ -6,7 +6,7 @@ Used as a testcase to demonstrate extra processes being spawned and not terminat
 # lg.basicConfig(level=lg.DEBUG)
 import copy
 
-from adlkit.data_provider import BaseGenerator, FileDataProvider, H5Filler, H5Reader
+from adlkit.data_provider import BaseGenerator, FileDataProvider, FileFiller, FileReader
 from adlkit.data_provider.tests.mock_config import mock_sample_specification
 
 mock_sample_specification = copy.deepcopy(mock_sample_specification)
@@ -24,8 +24,8 @@ tmp_data_provider = FileDataProvider(mock_sample_specification,
 import time
 
 start_time = time.time()
-tmp_data_provider.start(filler_class=H5Filler,
-                        reader_class=H5Reader,
+tmp_data_provider.start(filler_class=FileFiller,
+                        reader_class=FileReader,
                         generator_class=BaseGenerator,
                         # watcher_class=BaseWatcher
                         )

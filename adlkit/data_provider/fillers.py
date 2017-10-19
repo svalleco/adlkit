@@ -3,10 +3,10 @@ import copy
 import logging as lg
 import time
 
-import h5py
 from numpy import random
 
 from .config import FILLER_OFFSET
+from .io_drivers import DataIODriver
 from .workers import Worker
 
 RANDOM = random.random
@@ -15,7 +15,10 @@ filler_logger = lg.getLogger('data_provider.workers.fillers')
 
 
 class BaseFiller(Worker):
-    def __init__(self, in_queue, malloc_queue, worker_id, read_batches_per_epoch=None,
+    io_driver = None
+
+    def __init__(self, in_queue, malloc_queue, worker_id, io_driver,
+                 read_batches_per_epoch=None,
                  max_batches=None, **kwargs):
         super(BaseFiller, self).__init__(worker_id + FILLER_OFFSET, **kwargs)
 
@@ -25,6 +28,9 @@ class BaseFiller(Worker):
         self.max_batches = max_batches
         self.read_batches_per_epoch = read_batches_per_epoch
         self.data_set_tracker = dict()
+
+        assert isinstance(io_driver, DataIODriver)
+        self.io_driver = io_driver
 
     def debug(self, message):
         if isinstance(message, list):
@@ -54,43 +60,43 @@ class BaseFiller(Worker):
         """
 
         self.debug("starting...")
+        with self.io_driver:
+            while not self.should_stop() and (self.max_batches is None or self.batch_count < self.max_batches):
 
-        while not self.should_stop() and (self.max_batches is None or self.batch_count < self.max_batches):
+                if self.read_batches_per_epoch is not None and self.batch_count % self.read_batches_per_epoch == 0:
+                    self.reset()
 
-            if self.read_batches_per_epoch is not None and self.batch_count % self.read_batches_per_epoch == 0:
-                self.reset()
+                start_time = time.time()
+                self.debug("start build_batch")
+                batch = self.build_batch()
+                self.debug("build_batch_time={0}".format(time.time() - start_time))
 
-            start_time = time.time()
-            self.debug("start build_batch")
-            batch = self.build_batch()
-            self.debug("build_batch_time={0}".format(time.time() - start_time))
+                if batch is None:
+                    return False
 
-            if batch is None:
-                return False
+                # put cannot be trusted, must poll manually
 
-            # put cannot be trusted, must poll manually
+                in_queue_put_wait_time = time.time()
+                self.debug("start in_queue.put")
+                while not self.should_stop():
+                    try:
+                        self.in_queue.put(batch, block=False)
+                        self.debug("successfully put data in in_queue")
+                        break
+                    except Queue.Full:
+                        self.debug("in_queue is full, sleeping")
+                        self.sleep()
 
-            in_queue_put_wait_time = time.time()
-            self.debug("start in_queue.put")
-            while not self.should_stop():
-                try:
-                    self.in_queue.put(batch, block=False)
-                    self.debug("successfully put data in in_queue")
-                    break
-                except Queue.Full:
-                    self.debug("in_queue is full, sleeping")
-                    self.sleep()
-
-            self.debug(
-                    "batch_fill_time={0} in_queue_put_wait_time={1}".format(time.time() - start_time,
-                                                                            time.time() - in_queue_put_wait_time))
-            self.batch_count += 1
+                self.debug(
+                        "batch_fill_time={0} in_queue_put_wait_time={1}".format(time.time() - start_time,
+                                                                                time.time() - in_queue_put_wait_time))
+                self.batch_count += 1
 
         self.debug("exiting...")
         self.seppuku()
 
 
-class H5Filler(BaseFiller):
+class FileFiller(BaseFiller):
     """
 
     """
@@ -104,14 +110,14 @@ class H5Filler(BaseFiller):
                  skip=0,
                  wrap_examples=False,
                  shape_reader=None,
-                 cache_handles=False,
                  **kwargs):
 
-        super(H5Filler, self).__init__(in_queue=in_queue,
-                                       worker_id=worker_id,
-                                       max_batches=max_batches,
-                                       malloc_queue=malloc_queue,
-                                       read_batches_per_epoch=read_batches_per_epoch)
+        super(FileFiller, self).__init__(in_queue=in_queue,
+                                         worker_id=worker_id,
+                                         max_batches=max_batches,
+                                         malloc_queue=malloc_queue,
+                                         read_batches_per_epoch=read_batches_per_epoch,
+                                         **kwargs)
         self.skip = skip
         self.read_size = read_size
 
@@ -137,19 +143,18 @@ class H5Filler(BaseFiller):
         self.file_index_list = file_index_list
 
         self.report = True
-        self.cache_handles = cache_handles
 
     def inform_data_provider(self, data_sets, batch):
         malloc_requests = list()
         if self.shape_reader is None:
             for data_set in data_sets:
                 file_name = self.file_index_list[batch[0][0]]
-                if file_name in self.file_handle_holder:
-                    h5_file_handle = self.file_handle_holder[file_name]
-                else:
-                    h5_file_handle = self.file_handle_holder[file_name] = h5py.File(file_name, 'r')
 
-                shape = h5_file_handle[data_set][0].shape
+                data_handle = self.io_driver.get(file_name)
+
+                shape = data_handle[data_set][0].shape
+
+                self.io_driver.close(file_name, data_handle)
 
                 malloc_requests.append((data_set, shape))
 
@@ -217,13 +222,15 @@ class H5Filler(BaseFiller):
                     self.debug(['Opening:', class_name, str(tmp_class_holder['file_index']),
                                 file_name])
 
-                    # TODO make a switch that can either use `with` or self.file_handle_holder
-                    if self.cache_handles and file_name in self.file_handle_holder:
-                        h5_file_handle = self.file_handle_holder[file_name]
-                    elif self.cache_handles:
-                        h5_file_handle = self.file_handle_holder[file_name] = h5py.File(file_name, 'r')
-                    else:
-                        h5_file_handle = h5py.File(file_name, 'r')
+                    # # TODO make a switch that can either use `with` or self.file_handle_holder
+                    # if self.cache_handles and file_name in self.file_handle_holder:
+                    #     h5_file_handle = self.file_handle_holder[file_name]
+                    # elif self.cache_handles:
+                    #     h5_file_handle = self.file_handle_holder[file_name] = h5py.File(file_name, 'r')
+                    # else:
+                    #     h5_file_handle = h5py.File(file_name, 'r')
+
+                    data_handle = self.io_driver.get(file_name)
 
                     for data_set in tmp_class_holder['data_set_names']:
                         if data_set not in tmp_data_set_tracker:
@@ -236,16 +243,16 @@ class H5Filler(BaseFiller):
                     filter_time = time.time()
                     # TODO convert to calling function from dictionary by class_name
                     if self.filter_function is not None:
-                        tmp_filter_index_list = self.filter_function[class_name](h5_file_handle,
-                                                                                 tmp_class_holder[
-                                                                                     "data_set_names"])
+                        tmp_filter_index_list = self.filter_function[class_name](data_handle, tmp_class_holder[
+                            "data_set_names"])
                     else:
-                        tmp_filter_index_list = range(
-                                h5_file_handle[tmp_class_holder["data_set_names"][0]].shape[0])
+                        tmp_filter_index_list = range(data_handle[tmp_class_holder["data_set_names"][0]].shape[0])
 
                     self.debug("filter_function_time={0}".format(time.time() - filter_time))
 
                     tmp_class_holder['current_file_indices'] = sorted(tmp_filter_index_list)
+
+                    self.io_driver.close(file_name, data_handle)
 
                 start_index = tmp_class_holder['example_index']
 

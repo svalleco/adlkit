@@ -6,14 +6,14 @@ from __future__ import absolute_import
 import Queue
 import copy
 import logging as lg
+import os
 from unittest import TestCase
 
-import os
-
 from adlkit.data_provider.data_providers import FileDataProvider
-from adlkit.data_provider.fillers import H5Filler
+from adlkit.data_provider.fillers import FileFiller
 from adlkit.data_provider.generators import BaseGenerator
-from adlkit.data_provider.readers import H5Reader
+from adlkit.data_provider.io_drivers import H5DataIODriver
+from adlkit.data_provider.readers import FileReader
 from adlkit.data_provider.watchers import BaseWatcher
 
 lg.basicConfig(level=lg.DEBUG, format='%(asctime)s %(levelname)s %(name)s %(message)s ')
@@ -48,7 +48,8 @@ class TestFileDataProvider(TestCase):
                                              sleep_duration=sleep_duration)
 
         tmp_data_provider.start_queues()
-        tmp_data_provider.start_filler(H5Filler)
+        tmp_data_provider.start_filler(FileFiller,
+                                       io_driver=H5DataIODriver())
 
         tmp_data_provider.process_malloc_requests()
 
@@ -110,7 +111,9 @@ class TestFileDataProvider(TestCase):
                                              sleep_duration=sleep_duration)
 
         tmp_data_provider.start_queues()
-        tmp_data_provider.start_filler(H5Filler)
+        tmp_data_provider.start_filler(FileFiller,
+                                       io_driver=H5DataIODriver(),
+                                       shape_reader_io_driver=None)
 
         tmp_data_provider.process_malloc_requests()
 
@@ -160,7 +163,8 @@ class TestFileDataProvider(TestCase):
                                              sleep_duration=sleep_duration)
 
         tmp_data_provider.start_queues()
-        tmp_data_provider.start_filler(H5Filler)
+        tmp_data_provider.start_filler(FileFiller,
+                                       io_driver=H5DataIODriver())
 
         max_batches = 10
 
@@ -215,7 +219,8 @@ class TestFileDataProvider(TestCase):
 
         tmp_data_provider.malloc_requests = mock_expected_malloc_requests
 
-        reader_id = tmp_data_provider.start_reader(H5Reader)
+        reader_id = tmp_data_provider.start_reader(FileReader,
+                                                   io_driver=H5DataIODriver())
         # lg.debug("I am expecting to write to {0}".format(hex(id(tmp_data_provider.shared_memory[0][0][1][0]))))
         max_batches = 5
 
@@ -272,7 +277,8 @@ class TestFileDataProvider(TestCase):
 
         tmp_data_provider.malloc_requests = mock_expected_malloc_requests
 
-        reader_id = tmp_data_provider.start_reader(H5Reader)
+        reader_id = tmp_data_provider.start_reader(FileReader,
+                                                   io_driver=H5DataIODriver())
         # lg.debug("I am expecting to write to {0}".format(hex(id(tmp_data_provider.shared_memory[0][0][1][0]))))
 
         out = list()
@@ -329,7 +335,8 @@ class TestFileDataProvider(TestCase):
 
         tmp_data_provider.malloc_requests = mock_expected_malloc_requests
 
-        tmp_data_provider.start_reader(H5Reader)
+        tmp_data_provider.start_reader(FileReader,
+                                       io_driver=H5DataIODriver())
         # lg.debug("I am expecting to write to {0}".format(hex(id(tmp_data_provider.shared_memory[0][0][1][0]))))
 
         this = BaseGenerator(out_queue=tmp_data_provider.out_queue,
@@ -375,7 +382,8 @@ class TestFileDataProvider(TestCase):
 
         tmp_data_provider.malloc_requests = mock_expected_malloc_requests
 
-        tmp_data_provider.start_reader(H5Reader)
+        tmp_data_provider.start_reader(FileReader,
+                                       io_driver=H5DataIODriver())
         # lg.debug("I am expecting to write to {0}".format(hex(id(tmp_data_provider.shared_memory[0][0][1][0]))))
 
         this = BaseGenerator(out_queue=tmp_data_provider.out_queue,
@@ -414,11 +422,13 @@ class TestFileDataProvider(TestCase):
                                              max_batches=max_batches)
 
         tmp_data_provider.start_queues()
-        tmp_data_provider.start_filler(H5Filler)
+        tmp_data_provider.start_filler(FileFiller,
+                                       io_driver=H5DataIODriver())
 
         tmp_data_provider.process_malloc_requests()
 
-        tmp_data_provider.start_reader(H5Reader)
+        tmp_data_provider.start_reader(FileReader,
+                                       io_driver=H5DataIODriver())
 
         # lg.debug("I am expecting to write to {0}".format(hex(id(tmp_data_provider.shared_memory[0][0][1][0]))))
 
@@ -473,8 +483,8 @@ class TestFileDataProvider(TestCase):
                                              wrap_examples=True,
                                              sleep_duration=sleep_duration)
 
-        tmp_data_provider.start(filler_class=H5Filler,
-                                reader_class=H5Reader,
+        tmp_data_provider.start(filler_class=FileFiller,
+                                reader_class=FileReader,
                                 generator_class=BaseGenerator)
 
         # I could make this a function like the above, but it makes sense not to limit
@@ -510,8 +520,8 @@ class TestFileDataProvider(TestCase):
                                              sleep_duration=sleep_duration
                                              )
 
-        tmp_data_provider.start(filler_class=H5Filler,
-                                reader_class=H5Reader,
+        tmp_data_provider.start(filler_class=FileFiller,
+                                reader_class=FileReader,
                                 generator_class=BaseGenerator)
         generator_id = 0
 
@@ -554,8 +564,8 @@ class TestFileDataProvider(TestCase):
                                              wrap_examples=True,
                                              sleep_duration=sleep_duration)
 
-        tmp_data_provider.start(filler_class=H5Filler,
-                                reader_class=H5Reader,
+        tmp_data_provider.start(filler_class=FileFiller,
+                                reader_class=FileReader,
                                 generator_class=BaseGenerator,
                                 watcher_class=BaseWatcher)
 

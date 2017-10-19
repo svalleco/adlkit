@@ -4,15 +4,16 @@ import logging as lg
 import multiprocessing
 import signal
 import time
+from abc import ABCMeta, abstractmethod
 
 import billiard
 import numpy as np
-from abc import ABCMeta, abstractmethod
 
+from adlkit.data_provider.io_drivers import DataIODriver, H5DataIODriver
 from .config import ConfigurableObject, STOP_MESSAGE
-from .fillers import BaseFiller, H5Filler
+from .fillers import BaseFiller, FileFiller
 from .generators import BaseGenerator
-from .readers import BaseReader, H5Reader
+from .readers import BaseReader, FileReader
 from .watchers import BaseWatcher
 
 data_provider_logger = lg.getLogger('data_provider.main.dataprovdr')
@@ -138,6 +139,7 @@ class FileDataProvider(AbstractDataProvider):
 
             # If the workers should cache the file handles or close files after reading.
             # NOTE: File handle caching can cause undesired memory allocation.
+            # NOTEL these were moved to the DataIODrivers
             'cache_reader_handles'  : True,
             'cache_filler_handles'  : False,
 
@@ -356,14 +358,18 @@ class FileDataProvider(AbstractDataProvider):
     #     while len(self.config.data_sets) > len(self.malloc_requests) and not self.should_stop():
     #         self.process_malloc_requests(timeout=1)
 
-
     def start(self, filler_class, reader_class, generator_class,
-              watcher_class=None, shape_reader_class=None, **kwargs):
+              filler_io_driver=None,
+              reader_io_driver=None,
+              watcher_class=None,
+              shape_reader_class=None, **kwargs):
         """
 
         :param filler_class:
         :param reader_class:
         :param generator_class:
+        :param filler_io_driver:
+        :param reader_io_driver:
         :param watcher_class:
         :param shape_reader_class:
         :param kwargs: sent to all fillers / readers
@@ -376,9 +382,35 @@ class FileDataProvider(AbstractDataProvider):
         if self.is_started is True:
             self.debug("already started!")
             return
+
+        if isinstance(filler_io_driver, DataIODriver):
+            pass
+        elif filler_io_driver is None:
+            filler_io_driver = H5DataIODriver({"cache_handles": self.config.cache_filler_handles})
+        elif not isinstance(filler_io_driver, DataIODriver) and issubclass(filler_io_driver, DataIODriver):
+            filler_io_driver = filler_io_driver()
+        else:
+            if not issubclass(filler_io_driver, DataIODriver) or not issubclass(filler_io_driver, DataIODriver):
+                self.error("bad filler_io_driver given, defaulting to H5")
+            filler_io_driver = H5DataIODriver({"cache_handles": self.config.cache_filler_handles})
+
+        if isinstance(reader_io_driver, DataIODriver):
+            pass
+        elif reader_io_driver is None:
+            reader_io_driver = H5DataIODriver({"cache_handles": self.config.cache_reader_handles})
+        elif not isinstance(reader_io_driver, DataIODriver) and issubclass(reader_io_driver, DataIODriver):
+            reader_io_driver = reader_io_driver()
+        else:
+            if not isinstance(reader_io_driver, DataIODriver) or not issubclass(reader_io_driver, DataIODriver):
+                self.error("bad reader_io_driver given, defaulting to H5")
+            reader_io_driver = H5DataIODriver({"cache_handles": self.config.cache_reader_handles})
+
         self.start_queues()
 
-        self.start_filler(filler_class, shape_reader_class=shape_reader_class,
+        self.start_filler(filler_class,
+                          shape_reader_class=shape_reader_class,
+                          shape_reader_io_driver=reader_io_driver,
+                          io_driver=filler_io_driver,
                           **kwargs)
         # if self.config.wait_for_malloc:
         #     self.wait_for_malloc_requests()
@@ -387,7 +419,9 @@ class FileDataProvider(AbstractDataProvider):
 
         try:
             for reader_id in range(self.config.n_readers):
-                self.start_reader(reader_class, **kwargs)
+                self.start_reader(reader_class,
+                                  io_driver=reader_io_driver,
+                                  **kwargs)
         except Exception as e:
             data_provider_logger.error(e)
             self.hard_stop()
@@ -407,7 +441,7 @@ class FileDataProvider(AbstractDataProvider):
         self.is_started = True
         self.debug("start_time={0}".format(time.time() - start_time))
 
-    def start_filler(self, filler_class, shape_reader_class=None, **kwargs):
+    def start_filler(self, filler_class, io_driver, shape_reader_io_driver=None, shape_reader_class=None, **kwargs):
         shape_reader = None
         if shape_reader_class is not None and self.config.process_function is not None:
             if not issubclass(shape_reader_class, BaseReader):
@@ -415,6 +449,7 @@ class FileDataProvider(AbstractDataProvider):
                         type(shape_reader_class))
                 raise ValueError(message)
 
+            assert shape_reader_io_driver is not None
             shape_reader = shape_reader_class(worker_id=0,
                                               in_queue=None,
                                               out_queue=None,
@@ -423,7 +458,8 @@ class FileDataProvider(AbstractDataProvider):
                                               read_size=self.config.read_size,
                                               class_index_map=self.config.class_index_map,
                                               file_index_list=self.config.file_index_list,
-                                              process_function=self.config.process_function)
+                                              process_function=self.config.process_function,
+                                              io_driver=shape_reader_io_driver)
 
         # TODO handle case where filler already exists
         if issubclass(filler_class, BaseFiller):
@@ -444,7 +480,7 @@ class FileDataProvider(AbstractDataProvider):
                                        filter_function=self.config.filter_function,
                                        sleep_duration=self.config.sleep_duration,
                                        read_batches_per_epoch=self.config.read_batches_per_epoch,
-                                       cache_handles=self.config.cache_filler_handles,
+                                       io_driver=io_driver,
                                        **kwargs)
 
             self.filler.daemon = True
@@ -453,7 +489,7 @@ class FileDataProvider(AbstractDataProvider):
         else:
             return None
 
-    def start_reader(self, reader_class, **kwargs):
+    def start_reader(self, reader_class, io_driver, **kwargs):
         if issubclass(reader_class, BaseReader):
             # TODO possible off by one error
             reader_id = self.reader_count
@@ -478,7 +514,7 @@ class FileDataProvider(AbstractDataProvider):
                                                    process_function=self.config.process_function,
                                                    sleep_duration=self.config.sleep_duration,
                                                    shuffle=self.config.shuffle,
-                                                   cache_handles=self.config.cache_reader_handles,
+                                                   io_driver=io_driver,
                                                    **kwargs)
 
             self.readers[reader_id].daemon = True
@@ -689,16 +725,16 @@ class H5FileDataProvider(FileDataProvider):
         # super(H5FileDataProvider, self).start(H5Filler, H5Reader, BaseGenerator,
         #                                       shape_reader_class=H5Reader,
         #                                       **kwargs)
-        super(H5FileDataProvider, self).start(H5Filler, H5Reader, BaseGenerator,
-                                              shape_reader_class=H5Reader,
+        super(H5FileDataProvider, self).start(FileFiller, FileReader, BaseGenerator,
+                                              shape_reader_class=FileReader,
                                               **kwargs)
 
 
 class WatchedH5FileDataProvider(FileDataProvider):
     def start(self, **kwargs):
-        super(WatchedH5FileDataProvider, self).start(H5Filler, H5Reader, BaseGenerator,
+        super(WatchedH5FileDataProvider, self).start(FileFiller, FileReader, BaseGenerator,
                                                      watcher_class=BaseWatcher,
-                                                     shape_reader_class=H5Reader, **kwargs)
+                                                     shape_reader_class=FileReader, **kwargs)
         # super(H5FileDataProvider, self).start(H5Filler, H5Reader, BaseGenerator,
         #                                       shape_reader_class=H5Reader,
         #                                       **kwargs)

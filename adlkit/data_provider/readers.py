@@ -3,12 +3,12 @@ import collections
 import logging as lg
 import time
 
-import h5py
 import keras
 import numpy as np
 from six import raise_from
 
 from .config import READER_OFFSET
+from .io_drivers import DataIODriver
 from .workers import Worker
 
 # lg.basicConfig(level=lg.INFO)
@@ -22,9 +22,10 @@ class BaseReader(Worker):
     """
 
     """
+    io_driver = None
 
-    def __init__(self, worker_id, in_queue, out_queue, shared_memory_pointer,
-                 read_size, max_batches=None, **kwargs):
+    def __init__(self, worker_id, in_queue, out_queue, shared_memory_pointer, read_size, io_driver,
+                 max_batches=None, **kwargs):
         """
         :param worker_index:
         :param in_queue:
@@ -42,6 +43,9 @@ class BaseReader(Worker):
         self.max_batches = max_batches
         self.read_size = read_size
         self.reader_id = self.worker_id - READER_OFFSET
+
+        assert isinstance(io_driver, DataIODriver)
+        self.io_driver = io_driver
 
     def debug(self, message):
         if isinstance(message, list):
@@ -75,59 +79,50 @@ class BaseReader(Worker):
         self.read()
 
     def read(self):
-        """
-
-       :return:
-        """
-
         self.info("starting...")
-        in_queue_time = time.time()
-        # while not self.should_stop() and (
-        #                 self.max_batches is None or self.batch_count < self.max_batches):
-        # while not self.should_stop() or (
-        #                 self.max_batches is not None and self.batch_count >= self.max_batches):
-        while not self.should_stop() and (self.max_batches is None or self.batch_count < self.max_batches):
-            batch = self.get_batch()
-            if batch is not None:
-                # self.info("in_queue_get_wait_time={0} in_queue_size={1}".format(time.time() - in_queue_time,
-                # self.in_queue.qsize()))
-                self.debug("in_queue_get_wait_time={0}".format(time.time() - in_queue_time))
-                start_time = time.time()
-                self.debug("starting to prepare batch")
-                data_pointer = self.process_batch(batch)
-                self.debug("process_batch_time={0}".format(time.time() - start_time))
+        with self.io_driver:
 
-                if data_pointer is None:
-                    self.critical(
-                            "process_batch returned None, exiting... {0}".format(
-                                    batch))
-                    return False
+            in_queue_time = time.time()
 
-                elif data_pointer is EXIT:
-                    break
+            while not self.should_stop() and (self.max_batches is None or self.batch_count < self.max_batches):
+                batch = self.get_batch()
+                if batch is not None:
+                    # self.info("in_queue_get_wait_time={0} in_queue_size={1}".format(time.time() - in_queue_time,
+                    # self.in_queue.qsize()))
+                    self.debug("in_queue_get_wait_time={0}".format(time.time() - in_queue_time))
+                    start_time = time.time()
+                    self.debug("starting to prepare batch")
+                    data_pointer = self.process_batch(batch)
+                    self.debug("process_batch_time={0}".format(time.time() - start_time))
 
-                self.debug("starting out_queue.put")
-                wait_time = time.time()
-                while not self.should_stop():
-                    try:
-                        self.out_queue.put(data_pointer, timeout=0)
-                        self.debug("successfully put data in out_queue")
+                    if data_pointer is None:
+                        self.critical("process_batch returned None, exiting... {0}".format(batch))
+                        return False
+
+                    elif data_pointer is EXIT:
                         break
-                    except Queue.Full:
-                        # self.debug("out_queue is full, sleeping")
-                        self.sleep()
 
-                self.debug("batch_read_time={0} out_queue_put_wait_time={1}".format(time.time() - start_time,
-                                                                                    time.time() - wait_time))
-                # self.info("batch_read_time={0} out_queue_put_wait_time={1} out_queue_size={2}".format(time.time() -
-                #  start_time, time.time() - wait_time, self.out_queue.qsize()))
+                    self.debug("starting out_queue.put")
+                    wait_time = time.time()
+                    while not self.should_stop():
+                        try:
+                            self.out_queue.put(data_pointer, timeout=0)
+                            self.debug("successfully put data in out_queue")
+                            break
+                        except Queue.Full:
+                            # self.debug("out_queue is full, sleeping")
+                            self.sleep()
 
-                self.batch_count += 1
-                in_queue_time = time.time()
-            else:
-                self.sleep()
-                # time.sleep(self.sleep_duration)
-                pass
+                    self.debug("batch_read_time={0} out_queue_put_wait_time={1}".format(time.time() - start_time,
+                                                                                        time.time() - wait_time))
+                    # self.info("batch_read_time={0} out_queue_put_wait_time={1} out_queue_size={2}".format(
+                    # time.time() -
+                    #  start_time, time.time() - wait_time, self.out_queue.qsize()))
+
+                    self.batch_count += 1
+                    in_queue_time = time.time()
+                else:
+                    self.sleep()
 
         self.debug("exiting...")
         self.seppuku()
@@ -162,7 +157,7 @@ class BaseReader(Worker):
         return None
 
 
-class H5Reader(BaseReader):
+class FileReader(BaseReader):
     def __init__(self, worker_id, in_queue, out_queue, shared_memory_pointer,
                  read_size, class_index_map, file_index_list,
                  max_batches=None,
@@ -171,7 +166,6 @@ class H5Reader(BaseReader):
                  make_one_hot=False,
                  make_file_index=False,
                  shuffle=True,
-                 cache_handles=False,
                  **kwargs):
         super(self.__class__, self).__init__(worker_id=worker_id,
                                              in_queue=in_queue,
@@ -190,7 +184,6 @@ class H5Reader(BaseReader):
         self.make_one_hot = make_one_hot
         self.make_file_index = make_file_index
         self.shuffle = shuffle
-        self.cache_handles = cache_handles
 
     def process_batch(self, batch, store_in_shared=True):
         batch_id = 0
@@ -225,19 +218,18 @@ class H5Reader(BaseReader):
 
             file_path = self.file_index_list[file_path_index]
 
-            if self.cache_handles:
-                if file_path in self.file_handle_holder:
-                    h5_file_handle = self.file_handle_holder[file_path]
-                else:
-                    h5_file_handle = self.file_handle_holder[file_path] = h5py.File(file_path, 'r')
-            else:
-                h5_file_handle = h5py.File(file_path, 'r')
+            # if self.cache_handles:
+            #     if file_path in self.file_handle_holder:
+            #         h5_file_handle = self.file_handle_holder[file_path]
+            #     else:
+            #         h5_file_handle = self.file_handle_holder[file_path] = h5py.File(file_path, 'r')
+            # else:
+            #     h5_file_handle = h5py.File(file_path, 'r')
+
+            data_handle = self.io_driver.get(file_path)
 
             h5_to_payloads_time = time.time()
             for data_set in data_sets:
-                # if len(payloads) < data_set_index + 1:
-                #     payloads.append(range(n_read_requests))
-                # payload = payloads[data_set_index]
                 try:
                     payloads[data_set][read_index]
                 except KeyError:
@@ -247,7 +239,7 @@ class H5Reader(BaseReader):
                     # TODO use read_direct function instead
                     # http://docs.h5py.org/en/latest/high/dataset.html
                     payloads[data_set][read_index] = np.array(
-                            h5_file_handle[data_set][read_descriptor[0]:read_descriptor[1]])
+                            data_handle[data_set][read_descriptor[0]:read_descriptor[1]])
 
                     # payloads[data_set_index][read_index] = h5_file_handle[data_set][read_descriptor[
                     # 0]:read_descriptor[1]]
@@ -256,7 +248,7 @@ class H5Reader(BaseReader):
                     # TODO there is potentially a faster way
                     # https://stackoverflow.com/questions/21766145/h5py-correct-way-to-slice-array-datasets
                     # payloads[data_set][read_index] = np.take(h5_file_handle[data_set], read_descriptor, axis=0)
-                    payloads[data_set][read_index] = h5_file_handle[data_set][read_descriptor]
+                    payloads[data_set][read_index] = data_handle[data_set][read_descriptor]
 
             self.debug("h5_to_payloads_time={0} read_index={1} batch_id={2}".format(time.time() - h5_to_payloads_time,
                                                                                     read_index,
@@ -289,8 +281,8 @@ class H5Reader(BaseReader):
 
             start += n_examples
 
-            if not self.cache_handles:
-                h5_file_handle.close()
+            # if not self.cache_handles:
+            self.io_driver.close(file_path, data_handle)
 
         self.debug("payloads_build_time={0} batch_id={1}".format(time.time() - payloads_build_time,
                                                                  batch_id))
@@ -304,9 +296,8 @@ class H5Reader(BaseReader):
                 print(payloads[data_set])
                 raise ValueError(e)
 
-        self.debug(
-                "concat_time={0} batch_id={1}".format(time.time() - concat_time,
-                                                      batch_id))
+        self.debug("concat_time={0} batch_id={1}".format(time.time() - concat_time,
+                                                         batch_id))
 
         if self.make_class_index:
             payloads['class_index'] = tmp_index_payload

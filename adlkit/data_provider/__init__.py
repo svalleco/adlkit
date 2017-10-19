@@ -15,8 +15,8 @@ from __future__ import absolute_import
 from .data_providers import FileDataProvider, H5FileDataProvider, AbstractDataProvider, WatchedH5FileDataProvider
 from .config import Config, ConfigurableObject
 from .workers import Worker
-from .fillers import BaseFiller, H5Filler
-from .readers import BaseReader, H5Reader
+from .fillers import BaseFiller, FileFiller
+from .readers import BaseReader, FileReader
 from .generators import BaseGenerator
 from .watchers import BaseWatcher
 from .cached_data_providers import GeneratorCacher

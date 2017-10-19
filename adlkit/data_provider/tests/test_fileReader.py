@@ -7,12 +7,13 @@ from unittest import TestCase
 
 import numpy as np
 
-from adlkit.data_provider.readers import H5Reader
+from adlkit.data_provider.io_drivers import H5DataIODriver
+from adlkit.data_provider.readers import FileReader
 
 lg.basicConfig(level=lg.INFO, format='%(asctime)s %(levelname)s %(name)s %(message)s ')
 
 
-class TestH5Reader(TestCase):
+class TestFileReader(TestCase):
     def test_read(self):
         """
         max_batches and batch_size are directly correlated to test input data
@@ -65,11 +66,12 @@ class TestH5Reader(TestCase):
             shared_data_pointer[bucket] = [state, data_sets, generator_start_counter,
                                            generator_end_counter]
 
-        reader = H5Reader(worker_id=reader_id, in_queue=in_queue, out_queue=out_queue,
-                          shared_memory_pointer=shared_data_pointer,
-                          max_batches=max_batches, read_size=read_size,
-                          class_index_map=mock_class_index_map,
-                          file_index_list=mock_file_index_list)
+        reader = FileReader(worker_id=reader_id, in_queue=in_queue, out_queue=out_queue,
+                            shared_memory_pointer=shared_data_pointer,
+                            max_batches=max_batches, read_size=read_size,
+                            class_index_map=mock_class_index_map,
+                            file_index_list=mock_file_index_list,
+                            io_driver=H5DataIODriver())
 
         reader.read()
 
@@ -86,8 +88,8 @@ class TestH5Reader(TestCase):
 
         self.assertEquals(len(out), max_batches,
                           "test consumed {0} of {1} expected batches from the in_queue".format(
-                              len(out),
-                              max_batches))
+                                  len(out),
+                                  max_batches))
 
     def test_read_one_hot(self):
         from mock_config import mock_batches, mock_expected_malloc_requests, \
@@ -136,12 +138,13 @@ class TestH5Reader(TestCase):
             shared_data_pointer[bucket] = [state, data_sets, generator_start_counter,
                                            generator_end_counter]
 
-        reader = H5Reader(worker_id=reader_id, in_queue=in_queue, out_queue=out_queue,
-                          shared_memory_pointer=shared_data_pointer,
-                          max_batches=max_batches, read_size=read_size,
-                          class_index_map=mock_class_index_map,
-                          make_one_hot=True, make_class_index=True,
-                          file_index_list=mock_file_index_list)
+        reader = FileReader(worker_id=reader_id, in_queue=in_queue, out_queue=out_queue,
+                            shared_memory_pointer=shared_data_pointer,
+                            max_batches=max_batches, read_size=read_size,
+                            class_index_map=mock_class_index_map,
+                            make_one_hot=True, make_class_index=True,
+                            file_index_list=mock_file_index_list,
+                            io_driver=H5DataIODriver())
 
         reader.read()
 
@@ -158,8 +161,8 @@ class TestH5Reader(TestCase):
 
         self.assertEquals(len(out), max_batches,
                           "test consumed {0} of {1} expected batches from the in_queue".format(
-                              len(out),
-                              max_batches))
+                                  len(out),
+                                  max_batches))
 
     def test_list_read_descriptor(self):
         from mock_config import mock_filtered_batches, mock_expected_malloc_requests, \
@@ -208,13 +211,14 @@ class TestH5Reader(TestCase):
             shared_data_pointer[bucket] = [state, data_sets, generator_start_counter,
                                            generator_end_counter]
 
-        reader = H5Reader(worker_id=reader_id, in_queue=in_queue, out_queue=out_queue,
-                          shared_memory_pointer=shared_data_pointer,
-                          max_batches=max_batches, read_size=read_size,
-                          class_index_map=mock_class_index_map,
-                          file_index_list=mock_file_index_list,
-                          make_one_hot=True,
-                          make_class_index=True)
+        reader = FileReader(worker_id=reader_id, in_queue=in_queue, out_queue=out_queue,
+                            shared_memory_pointer=shared_data_pointer,
+                            max_batches=max_batches, read_size=read_size,
+                            class_index_map=mock_class_index_map,
+                            file_index_list=mock_file_index_list,
+                            make_one_hot=True,
+                            make_class_index=True,
+                            io_driver=H5DataIODriver())
 
         reader.read()
 
@@ -231,12 +235,13 @@ class TestH5Reader(TestCase):
 
         self.assertEquals(len(out), max_batches,
                           "test consumed {0} of {1} expected batches from the in_queue".format(
-                              len(out),
-                              max_batches))
+                                  len(out),
+                                  max_batches))
 
         # def test_process_function(self):
         #     from mock_functions import mock_densifer_function
-        #     from mock_config import mock_sparse_batches, mock_sparse_expected_malloc_requests_2, mock_sparse_class_index_map
+        #     from mock_config import mock_sparse_batches, mock_sparse_expected_malloc_requests_2,
+        # mock_sparse_class_index_map
         #     mock_sparse_batches = copy.deepcopy(mock_sparse_batches)
         #     mock_sparse_expected_malloc_requests = copy.deepcopy(mock_sparse_expected_malloc_requests_2)
         #     mock_sparse_class_index_map = copy.deepcopy(mock_sparse_class_index_map)
@@ -345,15 +350,16 @@ class TestH5Reader(TestCase):
             shared_data_pointer[bucket] = [state, data_sets, generator_start_counter,
                                            generator_end_counter]
 
-        reader = H5Reader(worker_id=reader_id, in_queue=in_queue, out_queue=out_queue,
-                          shared_memory_pointer=shared_data_pointer,
-                          max_batches=max_batches,
-                          read_size=read_size,
-                          class_index_map=mock_class_index_map,
-                          make_one_hot=True,
-                          make_class_index=True,
-                          make_file_index=True,
-                          file_index_list=mock_file_index_list)
+        reader = FileReader(worker_id=reader_id, in_queue=in_queue, out_queue=out_queue,
+                            shared_memory_pointer=shared_data_pointer,
+                            max_batches=max_batches,
+                            read_size=read_size,
+                            class_index_map=mock_class_index_map,
+                            make_one_hot=True,
+                            make_class_index=True,
+                            make_file_index=True,
+                            file_index_list=mock_file_index_list,
+                            io_driver=H5DataIODriver())
 
         reader.read()
 
@@ -372,5 +378,5 @@ class TestH5Reader(TestCase):
 
         self.assertEquals(len(out), max_batches,
                           "test consumed {0} of {1} expected batches from the in_queue".format(
-                              len(out),
-                              max_batches))
+                                  len(out),
+                                  max_batches))
