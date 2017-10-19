@@ -588,6 +588,9 @@ class FileDataProvider(AbstractDataProvider):
             except Exception as e:
                 data_provider_logger.debug(e)
 
+        if self.watcher is not None:
+            self.stop_watcher()
+
         self.drain_queues()
         self.stop_queues()
 
@@ -612,6 +615,9 @@ class FileDataProvider(AbstractDataProvider):
         # del self.shared_memory
         # gc.collect()
         self.is_started = False
+
+    def stop_watcher(self):
+        self.watcher.send_command(STOP_MESSAGE)
 
     def drain_queues(self):
         while True:

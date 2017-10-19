@@ -39,6 +39,7 @@ class BaseWatcher(Worker):
         # TODO - wghilliard - time out for locks
 
         out_queue_get_wait_time = time.time()
+        self.debug("watcher starting")
         while not self.should_stop() and (self.max_batches is None or self.batch_count < self.max_batches):
             # while not self.should_stop() or (
             #                 self.max_batches is not None and self.batch_count < self.max_batches):
@@ -46,7 +47,7 @@ class BaseWatcher(Worker):
                 read_batch = self.out_queue.get(timeout=1)
                 if read_batch is not None:
                     self.debug("out_queue_get_wait_time={0}".format(time.time()
-                                                                   - out_queue_get_wait_time))
+                                                                    - out_queue_get_wait_time))
                     start_time = time.time()
                     try:
                         for generator_queue in self.multicast_queues:
@@ -65,6 +66,11 @@ class BaseWatcher(Worker):
             for reader_index, reader_slot in enumerate(self.shared_memory_pointer):
                 for bucket_index, bucket in enumerate(reader_slot):
                     with bucket[0].get_lock() and bucket[2].get_lock() and bucket[3].get_lock():
+                        self.debug('does {}={}={} (reader_id={}, bucket_index={})'.format(bucket[2].value,
+                                                                                          bucket[3].value,
+                                                                                          self.n_generators,
+                                                                                          reader_index,
+                                                                                          bucket_index))
                         if bucket[2].value == bucket[3].value == self.n_generators:
                             self.debug(
                                     "resetting bucket reader_id={0} bucket_id={1}".format(reader_index,

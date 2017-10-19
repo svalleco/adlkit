@@ -516,7 +516,7 @@ class TestFileDataProvider(TestCase):
         generator_id = 0
 
         for _ in range(100):
-        # for _ in range(10000000):
+            # for _ in range(10000000):
             tmp = tmp_data_provider.generators[generator_id].generate().next()
             # TODO better checks
             self.assertEqual(len(tmp), 4)
@@ -540,7 +540,7 @@ class TestFileDataProvider(TestCase):
         from adlkit.data_provider.tests.mock_config import mock_sample_specification
         mock_sample_specification = copy.deepcopy(mock_sample_specification)
 
-        max_batches = 10
+        max_batches = 100
         batch_size = 100
         n_generators = 5
 
@@ -595,6 +595,7 @@ class TestFileDataProvider(TestCase):
                                              make_class_index=True,
                                              n_readers=n_readers,
                                              n_generators=n_generators,
+                                             n_buckets=2,
                                              sleep_duration=sleep_duration)
 
         tmp_data_provider.start_queues()

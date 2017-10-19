@@ -15,6 +15,8 @@ from .workers import Worker
 
 reader_logger = lg.getLogger('data_provider.workers.readers')
 
+EXIT = object()
+
 
 class BaseReader(Worker):
     """
@@ -54,23 +56,20 @@ class BaseReader(Worker):
         if isinstance(message, list):
             message = " ".join(message)
         # super(BaseReader, self).debug(" :READER #{0}: ".format(self.reader_id) + message)
-        reader_logger.info(
-                " reader_id={0} reader_batch_id={1} ".format(self.worker_id,
-                                                             self.batch_count) + message)
+        reader_logger.info(" reader_id={0} reader_batch_id={1} ".format(self.worker_id,
+                                                                        self.batch_count) + message)
 
     def critical(self, message):
         if isinstance(message, list):
             message = " ".join(message)
-        reader_logger.critical(
-                " reader_id={0} reader_batch_id={1} ".format(self.worker_id,
-                                                             self.batch_count) + message)
+        reader_logger.critical(" reader_id={0} reader_batch_id={1} ".format(self.worker_id,
+                                                                            self.batch_count) + message)
 
     def error(self, message):
         if isinstance(message, list):
             message = " ".join(message)
-        reader_logger.error(
-                " reader_id={0} reader_batch_id={1} ".format(self.worker_id,
-                                                             self.batch_count) + message)
+        reader_logger.error(" reader_id={0} reader_batch_id={1} ".format(self.worker_id,
+                                                                         self.batch_count) + message)
 
     def run(self, **kwargs):
         self.read()
@@ -87,26 +86,25 @@ class BaseReader(Worker):
         #                 self.max_batches is None or self.batch_count < self.max_batches):
         # while not self.should_stop() or (
         #                 self.max_batches is not None and self.batch_count >= self.max_batches):
-        while not self.should_stop() and (
-                        self.max_batches is None or self.batch_count < self.max_batches):
-
+        while not self.should_stop() and (self.max_batches is None or self.batch_count < self.max_batches):
             batch = self.get_batch()
             if batch is not None:
                 # self.info("in_queue_get_wait_time={0} in_queue_size={1}".format(time.time() - in_queue_time,
                 # self.in_queue.qsize()))
-                self.debug("in_queue_get_wait_time={0}".format(
-                        time.time() - in_queue_time))
+                self.debug("in_queue_get_wait_time={0}".format(time.time() - in_queue_time))
                 start_time = time.time()
                 self.debug("starting to prepare batch")
                 data_pointer = self.process_batch(batch)
-                self.debug(
-                        "process_batch_time={0}".format(time.time() - start_time))
+                self.debug("process_batch_time={0}".format(time.time() - start_time))
 
                 if data_pointer is None:
                     self.critical(
                             "process_batch returned None, exiting... {0}".format(
                                     batch))
                     return False
+
+                elif data_pointer is EXIT:
+                    break
 
                 self.debug("starting out_queue.put")
                 wait_time = time.time()
@@ -119,9 +117,8 @@ class BaseReader(Worker):
                         # self.debug("out_queue is full, sleeping")
                         self.sleep()
 
-                self.debug(
-                        "batch_read_time={0} out_queue_put_wait_time={1}".format(
-                                time.time() - start_time, time.time() - wait_time))
+                self.debug("batch_read_time={0} out_queue_put_wait_time={1}".format(time.time() - start_time,
+                                                                                    time.time() - wait_time))
                 # self.info("batch_read_time={0} out_queue_put_wait_time={1} out_queue_size={2}".format(time.time() -
                 #  start_time, time.time() - wait_time, self.out_queue.qsize()))
 
@@ -153,9 +150,8 @@ class BaseReader(Worker):
                     with bucket[0].get_lock():
                         if bucket[0].value == 0:
                             bucket[0].value = 1
-                            self.debug(
-                                    "bucket_seek_time={0} bucket_index={1}".format(
-                                            time.time() - start_time, bucket_index))
+                            self.debug("bucket_seek_time={0} bucket_index={1}".format(time.time() - start_time,
+                                                                                      bucket_index))
                             assert bucket_index is not None
                             return bucket_index
                 self.sleep()
@@ -200,7 +196,11 @@ class H5Reader(BaseReader):
         batch_id = 0
         if store_in_shared:
             bucket_index = self.find_bucket()
-            assert isinstance(bucket_index, int)
+            try:
+                assert isinstance(bucket_index, int)
+            except AssertionError:
+                self.debug("reader shared memory bucket=None, if DataProvider.hard_stop was called then ignore")
+                return EXIT
         else:
             bucket_index = 0
         data_sets = list()
@@ -246,9 +246,9 @@ class H5Reader(BaseReader):
                 if isinstance(read_descriptor, tuple):
                     # TODO use read_direct function instead
                     # http://docs.h5py.org/en/latest/high/dataset.html
-                    payloads[data_set][read_index] = np.array(h5_file_handle[data_set][
-                                                              read_descriptor[0]:read_descriptor[
-                                                                  1]])
+                    payloads[data_set][read_index] = np.array(
+                            h5_file_handle[data_set][read_descriptor[0]:read_descriptor[1]])
+
                     # payloads[data_set_index][read_index] = h5_file_handle[data_set][read_descriptor[
                     # 0]:read_descriptor[1]]
 
@@ -282,7 +282,7 @@ class H5Reader(BaseReader):
                 lg.critical("n_examples={} start={} len(tmp_class_index)={}".format(n_examples,
                                                                                     start,
                                                                                     len(tmp_class_index)))
-                raise_from(ValueError, e)
+                raise_from(ValueError(), e)
 
             # tmp_file_index = np.full(n_examples, self.class_index_map[class_name])
             # for thing in range(n_examples):
@@ -292,8 +292,8 @@ class H5Reader(BaseReader):
             if not self.cache_handles:
                 h5_file_handle.close()
 
-        self.debug("payloads_build_time={0} batch_id={1}".format(
-                time.time() - payloads_build_time, batch_id))
+        self.debug("payloads_build_time={0} batch_id={1}".format(time.time() - payloads_build_time,
+                                                                 batch_id))
 
         concat_time = time.time()
         for data_set in payloads:
@@ -323,8 +323,8 @@ class H5Reader(BaseReader):
         if self.process_function is not None:
             # print('using process function')
             payloads = self.process_function(payloads)
-            self.debug("process_function_time={0} batch_id={1}".format(
-                    time.time() - process_time, batch_id))
+            self.debug("process_function_time={0} batch_id={1}".format(time.time() - process_time,
+                                                                       batch_id))
         else:
             payloads = payloads.values()
 
@@ -347,8 +347,7 @@ class H5Reader(BaseReader):
                 except TypeError as e:
                     self.critical(e.message)
                     self.critical(
-                            "HELP!> SHARED MEMORY FAILED, bucket_index={0} data_set_index={1} batch={2} payload={"
-                            "3}".format(
+                            "SHARED MEMORY FAILED, bucket_index={0} data_set_index={1} batch={2} payload={3}".format(
                                     bucket_index,
                                     data_set_index,
                                     batch,
@@ -356,8 +355,8 @@ class H5Reader(BaseReader):
 
                     # sys.exit(1)
 
-            self.debug("store_in_shared_time={0} batch_id={1}".format(
-                    time.time() - store_in_shared_time, batch_id))
+            self.debug("store_in_shared_time={0} batch_id={1}".format(time.time() - store_in_shared_time,
+                                                                      batch_id))
             return self.worker_id - READER_OFFSET, bucket_index, data_sets, batch_id
         else:
             return payloads
