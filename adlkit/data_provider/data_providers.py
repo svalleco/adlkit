@@ -726,6 +726,8 @@ class H5FileDataProvider(FileDataProvider):
         #                                       shape_reader_class=H5Reader,
         #                                       **kwargs)
         super(H5FileDataProvider, self).start(FileFiller, FileReader, BaseGenerator,
+                                              filler_io_driver=H5DataIODriver,
+                                              reader_io_driver=H5DataIODriver,
                                               shape_reader_class=FileReader,
                                               **kwargs)
 
@@ -733,6 +735,8 @@ class H5FileDataProvider(FileDataProvider):
 class WatchedH5FileDataProvider(FileDataProvider):
     def start(self, **kwargs):
         super(WatchedH5FileDataProvider, self).start(FileFiller, FileReader, BaseGenerator,
+                                                     filler_io_driver=H5DataIODriver,
+                                                     reader_io_driver=H5DataIODriver,
                                                      watcher_class=BaseWatcher,
                                                      shape_reader_class=FileReader, **kwargs)
         # super(H5FileDataProvider, self).start(H5Filler, H5Reader, BaseGenerator,
