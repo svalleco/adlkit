@@ -139,7 +139,7 @@ class FileDataProvider(AbstractDataProvider):
 
             # If the workers should cache the file handles or close files after reading.
             # NOTE: File handle caching can cause undesired memory allocation.
-            # NOTEL these were moved to the DataIODrivers
+            # NOTE: The implementation for these were moved to the DataIODrivers.
             'cache_reader_handles'  : True,
             'cache_filler_handles'  : False,
 
