@@ -1,3 +1,23 @@
+# -*- coding: utf-8 -*-
+"""
+ADLKit
+Copyright ©2017 AnomalousDL, Inc.  All rights reserved.
+
+AnomalousDL, Inc. (ADL) licenses this file to you under the Academic and Research End User License Agreement (the
+"License"); you may not use this file except in compliance with the License.  You may obtain a copy of the License at
+
+  http://www.anomalousdl.com/licenses/ACADEMIC-LICENSE.txt
+
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL ADL BE LIABLE FOR ANY
+DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE, either express
+or implied.  See the License for the specific language governing permissions and limitations under the License.
+"""
+
 import logging as lg
 from abc import ABCMeta, abstractmethod
 
@@ -31,12 +51,12 @@ class DataIODriver(object):
         pass
 
 
-class H5DataIODriver(DataIODriver):
+class FileDataIODriver(DataIODriver):
     file_handle_holder = None
     cache_handles = False
 
     def __init__(self, opts=None):
-        super(H5DataIODriver, self).__init__(opts)
+        super(FileDataIODriver, self).__init__(opts)
         self.file_handle_holder = dict()
         self.cache_handles = self.opts.get("cache_handles", False)
 
@@ -55,14 +75,27 @@ class H5DataIODriver(DataIODriver):
             if descriptor in self.file_handle_holder:
                 return self.file_handle_holder[descriptor]
             else:
-                h5_file_handle = self.file_handle_holder[descriptor] = h5py.File(descriptor, 'r')
-                return h5_file_handle
+                file_handle = self.file_handle_holder[descriptor] = self._get(descriptor)
+                return file_handle
         else:
-            return h5py.File(descriptor, 'r')
+            return self._get(descriptor)
+
+    def _get(self, descriptor):
+        pass
 
     def close(self, descriptor, handle, force=False):
         if not self.cache_handles or force:
-            if descriptor not in self.file_handle_holder:
-                handle.close()
-            else:
-                self.file_handle_holder[descriptor].close()
+            self._close(handle)
+            if descriptor in self.file_handle_holder:
+                self.file_handle_holder[descriptor] = None
+
+    def _close(self, handle):
+        pass
+
+
+class H5DataIODriver(FileDataIODriver):
+    def _get(self, descriptor):
+        return h5py.File(descriptor, 'r')
+
+    def _close(self, handle):
+        handle.close()

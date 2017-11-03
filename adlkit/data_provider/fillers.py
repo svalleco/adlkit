@@ -1,3 +1,23 @@
+# -*- coding: utf-8 -*-
+"""
+ADLKit
+Copyright ©2017 AnomalousDL, Inc.  All rights reserved.
+
+AnomalousDL, Inc. (ADL) licenses this file to you under the Academic and Research End User License Agreement (the
+"License"); you may not use this file except in compliance with the License.  You may obtain a copy of the License at
+
+  http://www.anomalousdl.com/licenses/ACADEMIC-LICENSE.txt
+
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL ADL BE LIABLE FOR ANY
+DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE, either express
+or implied.  See the License for the specific language governing permissions and limitations under the License.
+"""
+
 import Queue
 import copy
 import logging as lg
@@ -219,16 +239,7 @@ class FileFiller(BaseFiller):
                     file_name = tmp_class_holder['file_names'][tmp_class_holder['file_index']]
                     file_name = self.file_index_list[file_name]
 
-                    self.debug(['Opening:', class_name, str(tmp_class_holder['file_index']),
-                                file_name])
-
-                    # # TODO make a switch that can either use `with` or self.file_handle_holder
-                    # if self.cache_handles and file_name in self.file_handle_holder:
-                    #     h5_file_handle = self.file_handle_holder[file_name]
-                    # elif self.cache_handles:
-                    #     h5_file_handle = self.file_handle_holder[file_name] = h5py.File(file_name, 'r')
-                    # else:
-                    #     h5_file_handle = h5py.File(file_name, 'r')
+                    self.debug(['Opening:', class_name, str(tmp_class_holder['file_index']), file_name])
 
                     data_handle = self.io_driver.get(file_name)
 
@@ -241,10 +252,9 @@ class FileFiller(BaseFiller):
                     #         "{0} has datasets with mismatched tensor shapes".format(file_name))
 
                     filter_time = time.time()
-                    # TODO convert to calling function from dictionary by class_name
                     if self.filter_function is not None:
-                        tmp_filter_index_list = self.filter_function[class_name](data_handle, tmp_class_holder[
-                            "data_set_names"])
+                        tmp_filter_index_list = self.filter_function[class_name](data_handle,
+                                                                                 tmp_class_holder["data_set_names"])
                     else:
                         tmp_filter_index_list = range(data_handle[tmp_class_holder["data_set_names"][0]].shape[0])
 

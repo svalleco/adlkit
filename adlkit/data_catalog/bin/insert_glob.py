@@ -1,13 +1,35 @@
-import glob
-import os
+# -*- coding: utf-8 -*-
+"""
+ADLKit
+Copyright ©2017 AnomalousDL, Inc.  All rights reserved.
+
+AnomalousDL, Inc. (ADL) licenses this file to you under the Academic and Research End User License Agreement (the
+"License"); you may not use this file except in compliance with the License.  You may obtain a copy of the License at
+
+  http://www.anomalousdl.com/licenses/ACADEMIC-LICENSE.txt
+
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL ADL BE LIABLE FOR ANY
+DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE, either express
+or implied.  See the License for the specific language governing permissions and limitations under the License.
+"""
+
 import argparse
+import glob
 import logging as lg
+import os
 import time
+
+from adlkit.data_catalog.config import base_dir, label_dir
 
 from adlkit.data_catalog.old_abstract_data_catalog import Label
 from adlkit.data_catalog.old_base_data_catalog import FileDataAPI
-from adlkit.data_catalog.config import base_dir, label_dir
 from adlkit.data_catalog.utils import file_name_to_epoch_time
+
 
 def setup_file_api():
     try:
@@ -51,12 +73,12 @@ def main(glob_string, family, label, data_sets, api):
         possible_label = file_path.split('/')[-2]
 
         tmp_dict = {
-            'label_name': label or possible_label,
-            'label_family': family,
-            'file_path': file_path,
-            'indices': [-1],
+            'label_name'      : label or possible_label,
+            'label_family'    : family,
+            'file_path'       : file_path,
+            'indices'         : [-1],
             'epoch_start_time': epoch_time,
-            'data_sets': data_sets,
+            'data_sets'       : data_sets,
 
         }
         api.insert_by_label(Label(tmp_dict))

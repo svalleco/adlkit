@@ -30,94 +30,100 @@ they will overwrite the defaults.
 Default FileDataProvider `.config`:
 ```python
 default_config = {
-            'batch_size': 2048,
+            'batch_size'            : 2048,
 
             # If initial indices should be skipped, set this to the
             # correspinding index.
-            'skip': 0,
+            'skip'                  : 0,
 
             # The max number of batches to deliver, per generator.
-            'max': 1e12,
+            'max_batches'           : 1e12,
 
             # If examples can be reused.
-            'wrap_examples': True,
+            'wrap_examples'         : True,
 
             # The number of reader processes to spawn. Each takes about ~4
             # file descriptors, so if you run out => make this number smaller.
-            'n_readers': 20,
+            'n_readers'             : 20,
 
             # How many generators will be reading the same data? Less than
             # one will cause an error. -1 might work...
-            'n_generators': 1,
+            'n_generators'          : 1,
 
             # If it is more efficient to read multiple batches at a time,
             # increment this.
-            'read_multiplier': 1,
+            'read_multiplier'       : 1,
 
             # Not Implemented
-            'waittime': 0.005,
+            'waittime'              : 0.005,
 
             # False Not Implemented
-            'use_shared_memory': True,
+            'use_shared_memory'     : True,
 
             # How many buckets should each reader have? When tuning,
             # scale with read_multiplier.
-            'n_buckets': 10,
+            'n_buckets'             : 10,
 
             # Queue depth coefficient for scaling with number of readers.
-            'q_multipler': 1,
+            'q_multipler'           : 1,
 
             # Not Implemented
-            'GeneratorTimeout': 10,
+            'GeneratorTimeout'      : 10,
 
             # Not Implemented
-            'SharedDataQueueSize': 1,
+            'SharedDataQueueSize'   : 1,
 
             # 'timing': False,
 
             # A filter_function will be given the first index of the
             # sample_specification and asked to produce a list of read_indices.
             # It can either be a single function or a dictionary of class_name:function pairs.
-            'filter_function': None,
+            'filter_function'       : None,
 
             # TODO convert to {'fun_name': function()}
             # A process_function will consume an OrderedDictionary and be
             # expected to produce a list of numpy arrays to store into the
             # shared memory.
-            'process_function': None,
+            'process_function'      : None,
 
             # If you need to swap the order, downsample, or any
             # other last-minute operation, do that here. Given a list of
             # numpy tensors, return a list of numpy tensors.
             # **NOTE** this is done in the h5_file_insert process.
-            'delivery_function': None,
+            'delivery_function'     : None,
 
             # If the batch should contain the class index tensor and the
             # one_hot tensors.
-            'make_class_index': False,
-            'make_one_hot': False,
+            'make_class_index'      : False,
+            'make_one_hot'          : False,
 
             # If the batch should contain a reference to the file+index combo that the data point
             # came from.
-            'make_file_index': False,
+            'make_file_index'       : False,
 
             # Not implemented.
-            'catch_signals': False,
+            'catch_signals'         : False,
 
             # This is a race condition catch. Probably not a good idea to
             # disable but may make sense in edge-cases.
-            'wait_for_malloc': True,
+            'wait_for_malloc'       : True,
 
             # The amount of time a worker should sleep if they are blocked by resource constraints.
             # This is used with os.sleep so either a float or an int should work.
-            'sleep_duration': 1,
+            'sleep_duration'        : 0.5,
 
             # If the rows should be shuffled on a per-batch basis.
-            'shuffle': True,
+            'shuffle'               : True,
 
-            # If the reader should cache the file handles or close files after reading.
-            'cache_handles': False,
-        }
+            # If the workers should cache the file handles or close files after reading.
+            # NOTE: File handle caching can cause undesired memory allocation.
+            # NOTE: The implementation for these were moved to the DataIODrivers.
+            'cache_reader_handles'  : True,
+            'cache_filler_handles'  : False,
+
+            # The number of batches a filler should create before resetting.
+            'read_batches_per_epoch': None
+}
 ```
 
 

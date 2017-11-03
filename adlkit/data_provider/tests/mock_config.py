@@ -1,3 +1,23 @@
+# -*- coding: utf-8 -*-
+"""
+ADLKit
+Copyright ©2017 AnomalousDL, Inc.  All rights reserved.
+
+AnomalousDL, Inc. (ADL) licenses this file to you under the Academic and Research End User License Agreement (the
+"License"); you may not use this file except in compliance with the License.  You may obtain a copy of the License at
+
+  http://www.anomalousdl.com/licenses/ACADEMIC-LICENSE.txt
+
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL ADL BE LIABLE FOR ANY
+DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE, either express
+or implied.  See the License for the specific language governing permissions and limitations under the License.
+"""
+
 sleep_duration = None
 
 mock_file_index_list = ['../data/test_file_0.h5', '../data/test_file_1.h5',
@@ -23,8 +43,8 @@ mock_file_index_malloc = [('class_index', tuple()),
                           ('file_struct', (2,))]
 
 mock_class_index_map = {
-    'class_1': 0,
-    'class_2': 1,
+    'class_1' : 0,
+    'class_2' : 1,
     'class_10': 2
 }
 
@@ -49,33 +69,33 @@ mock_class_index_map = {
 #                  'n_examples': 0, 'N': 0}}
 
 mock_classes = {
-    'class_1': {'class_prob': 0.07692307692307693,
-                'file_index': 0,
-                'data_set_names': ['tensor_1', 'tensor_2'],
-                'file_handle': False,
-                'example_index': 0,
-                'current_file_indices': None,
-                'file_names': [0],
-                'class_index': 0,
-                'n_examples': 0},
-    'class_10': {'class_prob': 0.7692307692307693,
-                 'file_index': 0,
-                 'data_set_names': ['tensor_1', 'tensor_2'],
-                 'file_handle': False,
-                 'example_index': 0,
+    'class_1' : {'class_prob'          : 0.07692307692307693,
+                 'file_index'          : 0,
+                 'data_set_names'      : ['tensor_1', 'tensor_2'],
+                 'file_handle'         : False,
+                 'example_index'       : 0,
                  'current_file_indices': None,
-                 'file_names': [2],
-                 'class_index': 2,
-                 'n_examples': 0},
-    'class_2': {'class_prob': 0.15384615384615385,
-                'file_index': 0,
-                'data_set_names': ['tensor_1', 'tensor_2'],
-                'file_handle': False,
-                'example_index': 0,
-                'current_file_indices': None,
-                'file_names': [1],
-                'class_index': 1,
-                'n_examples': 0}
+                 'file_names'          : [0],
+                 'class_index'         : 0,
+                 'n_examples'          : 0},
+    'class_10': {'class_prob'          : 0.7692307692307693,
+                 'file_index'          : 0,
+                 'data_set_names'      : ['tensor_1', 'tensor_2'],
+                 'file_handle'         : False,
+                 'example_index'       : 0,
+                 'current_file_indices': None,
+                 'file_names'          : [2],
+                 'class_index'         : 2,
+                 'n_examples'          : 0},
+    'class_2' : {'class_prob'          : 0.15384615384615385,
+                 'file_index'          : 0,
+                 'data_set_names'      : ['tensor_1', 'tensor_2'],
+                 'file_handle'         : False,
+                 'example_index'       : 0,
+                 'current_file_indices': None,
+                 'file_names'          : [1],
+                 'class_index'         : 1,
+                 'n_examples'          : 0}
 }
 
 mock_batches = [[(1, ['tensor_1', 'tensor_2'], 'class_2', (0, 163), 0),
