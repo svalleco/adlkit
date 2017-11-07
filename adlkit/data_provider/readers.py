@@ -25,6 +25,7 @@ import time
 
 import keras
 import numpy as np
+import signal
 from six import raise_from
 
 from .config import READER_OFFSET
@@ -96,6 +97,7 @@ class BaseReader(Worker):
                                                                          self.batch_count) + message)
 
     def run(self, **kwargs):
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
         self.read()
 
     def read(self):

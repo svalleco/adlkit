@@ -21,6 +21,7 @@ or implied.  See the License for the specific language governing permissions and
 import Queue
 import copy
 import logging as lg
+import signal
 import time
 
 from numpy import random
@@ -72,6 +73,7 @@ class BaseFiller(Worker):
         return
 
     def run(self, **kwargs):
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
         self.fill()
 
     def fill(self):

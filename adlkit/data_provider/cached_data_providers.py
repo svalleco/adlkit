@@ -17,6 +17,7 @@ AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE, either express
 or implied.  See the License for the specific language governing permissions and limitations under the License.
 """
+from __future__ import absolute_import
 
 import glob
 import os
@@ -25,7 +26,8 @@ import random
 import h5py
 import numpy as np
 
-from adlkit.data_provider import H5FileDataProvider
+# from adlkit.data_provider import H5FileDataProvider
+from .data_providers import H5FileDataProvider
 
 
 # TODO - wghilliard - refactor this

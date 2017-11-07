@@ -20,6 +20,7 @@ or implied.  See the License for the specific language governing permissions and
 
 import Queue
 import logging as lg
+import signal
 import time
 
 from .config import WATCHER_OFFSET
@@ -51,6 +52,7 @@ class BaseWatcher(Worker):
                                                                          self.batch_count) + message)
 
     def run(self, **kwargs):
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
         self.watch()
 
     def watch(self):
