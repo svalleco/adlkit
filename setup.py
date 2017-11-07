@@ -29,7 +29,7 @@ setuptools.setup(
         author_email="wghilliard@anomalousdl.com",
         url="https://github.com/anomalousdl/adlkit",
         install_requires=[
-            "keras",
+            "keras==2.0.8",
             "numpy",
             "h5py",
             "theano",
