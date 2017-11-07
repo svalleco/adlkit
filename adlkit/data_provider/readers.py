@@ -310,16 +310,21 @@ class FileReader(BaseReader):
         concat_time = time.time()
         for data_set in payloads:
             try:
-                # payloads[data_set] = np.concatenate(payloads[data_set])
+                payloads[data_set] = np.concatenate(payloads[data_set])
                 # agg = list()
                 # for sub_payload in payloads[data_set]:
                 #     agg.extend(sub_payload)
                 # payloads[data_set] = agg
-                payloads[data_set] = sum(payloads[data_set], list())
+                # payloads[data_set] = sum(payloads[data_set], list())
             except ValueError as e:
-                print(e)
-                print(payloads[data_set])
-                raise ValueError(e)
+                try:
+                    payloads[data_set] = sum(payloads[data_set], list())
+                except Exception as ee:
+
+                    lg.error(e)
+                    lg.error(ee)
+                    lg.error(payloads[data_set])
+                    raise ValueError(e)
 
         self.debug("concat_time={0} batch_id={1}".format(time.time() - concat_time,
                                                          batch_id))
