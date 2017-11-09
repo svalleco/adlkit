@@ -122,7 +122,10 @@ default_config = {
             'cache_filler_handles'  : False,
 
             # The number of batches a filler should create before resetting.
-            'read_batches_per_epoch': None
+            'read_batches_per_epoch': None,
+
+            # If you want to set the class_index_map explicitly, this is a mechanism for it.
+            'class_index_map'       : None
 }
 ```
 

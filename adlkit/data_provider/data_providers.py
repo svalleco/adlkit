@@ -164,7 +164,10 @@ class FileDataProvider(AbstractDataProvider):
             'cache_filler_handles'  : False,
 
             # The number of batches a filler should create before resetting.
-            'read_batches_per_epoch': None
+            'read_batches_per_epoch': None,
+
+            # If you want to set the class_index_map explicitly, this is a mechanism for it.
+            'class_index_map'       : None
         }
 
         # TODO decompose defaults into super classes
@@ -175,7 +178,7 @@ class FileDataProvider(AbstractDataProvider):
         #     setattr(self, key, value)
         #############
 
-        self.process_sample_specification(sample_specification)
+        self.process_sample_specification(sample_specification, self.config.get('class_index_map'))
 
         self.config.read_size = self.config.batch_size * self.config.read_multiplier
 
@@ -230,11 +233,10 @@ class FileDataProvider(AbstractDataProvider):
     def should_stop(self):
         return self.stop_check
 
-    def process_sample_specification(self, sample_specification):
+    def process_sample_specification(self, sample_specification, class_index_map=NameError):
         self.config.sample_specification = sample_specification
         self.config.classes, self.config.class_index_map, self.config.data_sets, self.config.file_index_list = \
-            self.build_classes_from_files(
-                    sample_specification)
+            self.build_classes_from_files(sample_specification, class_index_map)
 
     @staticmethod
     def build_classes_from_files(sample_specification, class_index_map=None):
@@ -263,6 +265,7 @@ class FileDataProvider(AbstractDataProvider):
 
             if isinstance(class_index_map, dict):
                 class_index = class_index_map[class_name]
+                # class_count = len(class_index_map)
             else:
                 try:
                     class_index = tmp_class_index_map[class_name]
