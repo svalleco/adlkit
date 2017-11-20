@@ -70,7 +70,7 @@ class FileDataIODriver(DataIODriver):
             except Exception as e:
                 lg.error(e)
 
-    def get(self, descriptor):
+    def get(self, descriptor, suppress=False):
         if self.cache_handles:
             if descriptor in self.file_handle_holder:
                 return self.file_handle_holder[descriptor]
@@ -78,9 +78,9 @@ class FileDataIODriver(DataIODriver):
                 file_handle = self.file_handle_holder[descriptor] = self._get(descriptor)
                 return file_handle
         else:
-            return self._get(descriptor)
+            return self._get(descriptor, suppress=suppress)
 
-    def _get(self, descriptor):
+    def _get(self, descriptor, suppress=False):
         pass
 
     def close(self, descriptor, handle, force=False):
@@ -94,7 +94,7 @@ class FileDataIODriver(DataIODriver):
 
 
 class H5DataIODriver(FileDataIODriver):
-    def _get(self, descriptor):
+    def _get(self, descriptor, suppress=False):
         return h5py.File(descriptor, 'r')
 
     def _close(self, handle):

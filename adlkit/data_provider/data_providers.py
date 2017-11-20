@@ -107,7 +107,7 @@ class FileDataProvider(AbstractDataProvider):
             'n_buckets'             : 10,
 
             # Queue depth coefficient for scaling with number of readers.
-            'q_multipler'           : 1,
+            'q_multiplier'          : 1,
 
             # Not Implemented
             'GeneratorTimeout'      : 10,
@@ -167,7 +167,11 @@ class FileDataProvider(AbstractDataProvider):
             'read_batches_per_epoch': None,
 
             # If you want to set the class_index_map explicitly, this is a mechanism for it.
-            'class_index_map'       : None
+            'class_index_map'       : None,
+
+            # If it is costly to open connections with your io_driver and you don't actually need the handle to work,
+            # flipping this switch can improve performance.
+            'suppress_opens'        : False
         }
 
         # TODO decompose defaults into super classes
@@ -504,6 +508,7 @@ class FileDataProvider(AbstractDataProvider):
                                        sleep_duration=self.config.sleep_duration,
                                        read_batches_per_epoch=self.config.read_batches_per_epoch,
                                        io_driver=io_driver,
+                                       suppress_opens=self.config.suppress_opens,
                                        **kwargs)
 
             self.filler.daemon = True
@@ -597,16 +602,16 @@ class FileDataProvider(AbstractDataProvider):
 
     def start_queues(self):
         self.in_queue = billiard.Queue(
-                maxsize=self.config.q_multipler * self.config.n_readers)
+                maxsize=self.config.q_multiplier * self.config.n_readers)
         self.out_queue = billiard.Queue(
-                maxsize=self.config.q_multipler * self.config.n_readers)
+                maxsize=self.config.q_multiplier * self.config.n_readers)
         self.malloc_queue = billiard.Queue(
-                maxsize=self.config.q_multipler * self.config.n_readers)
+                maxsize=self.config.q_multiplier * self.config.n_readers)
 
         for _ in range(self.config.n_generators):
             self.multicast_queues.append(
-                    billiard.Queue(maxsize=self.config.q_multipler * self.config.n_readers))
-            # multiprocessing.Queue(maxsize=self.config.q_multipler * self.config.n_readers))
+                    billiard.Queue(maxsize=self.config.q_multiplier * self.config.n_readers))
+            # multiprocessing.Queue(maxsize=self.config.q_multiplier * self.config.n_readers))
 
     def stop_queues(self):
         try:

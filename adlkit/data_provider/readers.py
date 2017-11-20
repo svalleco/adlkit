@@ -21,11 +21,11 @@ or implied.  See the License for the specific language governing permissions and
 import Queue
 import collections
 import logging as lg
+import signal
 import time
 
 import keras
 import numpy as np
-import signal
 from six import raise_from
 
 from .config import READER_OFFSET
@@ -250,7 +250,7 @@ class FileReader(BaseReader):
 
             data_handle = self.io_driver.get(file_path)
 
-            h5_to_payloads_time = time.time()
+            io_driver_to_payloads_time = time.time()
             for data_set in data_sets:
                 try:
                     payloads[data_set][read_index]
@@ -272,9 +272,10 @@ class FileReader(BaseReader):
                     # payloads[data_set][read_index] = np.take(h5_file_handle[data_set], read_descriptor, axis=0)
                     payloads[data_set][read_index] = data_handle[data_set][read_descriptor]
 
-            self.debug("h5_to_payloads_time={0} read_index={1} batch_id={2}".format(time.time() - h5_to_payloads_time,
-                                                                                    read_index,
-                                                                                    batch_id))
+            self.debug("io_driver_to_payloads_time={0} read_index={1} batch_id={2}".format(time.time() -
+                                                                                           io_driver_to_payloads_time,
+                                                                                           read_index,
+                                                                                           batch_id))
 
             if tmp_index_payload is None:
                 tmp_index_payload = np.zeros(self.read_size)

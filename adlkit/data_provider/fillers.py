@@ -132,6 +132,7 @@ class FileFiller(BaseFiller):
                  skip=0,
                  wrap_examples=False,
                  shape_reader=None,
+                 suppress_opens=False,
                  **kwargs):
 
         super(FileFiller, self).__init__(in_queue=in_queue,
@@ -159,7 +160,7 @@ class FileFiller(BaseFiller):
         self.wrap_examples = wrap_examples
         self.data_set_tracker = dict((data_set, False) for data_set in data_sets)
         self.shape_reader = shape_reader
-
+        self.suppress_opens = suppress_opens
         self.filler_id = self.worker_id - FILLER_OFFSET
 
         self.file_index_list = file_index_list
@@ -243,7 +244,7 @@ class FileFiller(BaseFiller):
 
                     self.debug(['Opening:', class_name, str(tmp_class_holder['file_index']), file_name])
 
-                    data_handle = self.io_driver.get(file_name)
+                    data_handle = self.io_driver.get(file_name, suppress=self.suppress_opens)
 
                     for data_set in tmp_class_holder['data_set_names']:
                         if data_set not in tmp_data_set_tracker:
