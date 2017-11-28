@@ -23,8 +23,9 @@ from __future__ import absolute_import
 import Queue
 import copy
 import logging as lg
-import os
 from unittest import TestCase
+
+import os
 
 from adlkit.data_provider.data_providers import FileDataProvider
 from adlkit.data_provider.fillers import FileFiller
@@ -535,6 +536,61 @@ class TestFileDataProvider(TestCase):
                                              n_buckets=2,
                                              q_multipler=3,
                                              sleep_duration=sleep_duration
+                                             )
+
+        tmp_data_provider.start(filler_class=FileFiller,
+                                reader_class=FileReader,
+                                generator_class=BaseGenerator)
+        generator_id = 0
+
+        for _ in range(100):
+            # for _ in range(10000000):
+            tmp = tmp_data_provider.generators[generator_id].generate().next()
+            # TODO better checks
+            self.assertEqual(len(tmp), 4)
+
+        tmp_data_provider.hard_stop()
+
+        # we are checking the that readers are killing themselves
+        # by checking that the pid no longer exists
+        # https://stackoverflow.com/questions/568271/how-to-check-if-there-exists-a-process-with-a-given-pid-in-python
+        for reader_process in tmp_data_provider.readers:
+            this = None
+            try:
+                os.kill(reader_process.pid, 0)
+                this = True
+            except OSError:
+                this = False
+            finally:
+                self.assertEqual(this, False)
+
+    def test_class_index_map(self):
+        """
+        if this fails, it's most likely due to a lack of allowed file descriptors
+        :return:
+        """
+
+        from adlkit.data_provider.tests.mock_config import mock_sample_specification
+        mock_sample_specification = copy.deepcopy(mock_sample_specification)
+
+        batch_size = 5
+
+        tmp_data_provider = FileDataProvider(mock_sample_specification,
+                                             batch_size=batch_size,
+                                             read_batches_per_epoch=1000,
+                                             read_multiplier=1,
+                                             make_one_hot=True,
+                                             make_class_index=True,
+                                             wrap_examples=True,
+                                             n_readers=5,
+                                             n_buckets=2,
+                                             q_multipler=3,
+                                             sleep_duration=sleep_duration,
+                                             class_index_map={
+                                                 'class_1' : -3,
+                                                 'class_2' : -2,
+                                                 'class_10': -1
+                                             }
                                              )
 
         tmp_data_provider.start(filler_class=FileFiller,

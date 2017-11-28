@@ -237,7 +237,7 @@ class FileDataProvider(AbstractDataProvider):
     def should_stop(self):
         return self.stop_check
 
-    def process_sample_specification(self, sample_specification, class_index_map=NameError):
+    def process_sample_specification(self, sample_specification, class_index_map=None):
         self.config.sample_specification = sample_specification
         self.config.classes, self.config.class_index_map, self.config.data_sets, self.config.file_index_list = \
             self.build_classes_from_files(sample_specification, class_index_map)

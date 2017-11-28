@@ -19,6 +19,7 @@ or implied.  See the License for the specific language governing permissions and
 """
 
 import logging as lg
+
 from abc import ABCMeta
 
 dc_lg = lg.getLogger('data_catalog')
@@ -60,8 +61,10 @@ class Label(CatalogObject):
 class AbstractDataCatalog(object):
     __metaclass__ = ABCMeta
 
+    opts = None
+
     def __init__(self):
-        pass
+        self.opts = dict()
 
     # @abstractmethod
     # def purge(self):
