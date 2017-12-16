@@ -20,7 +20,7 @@ or implied.  See the License for the specific language governing permissions and
 
 import logging as lg
 
-from abc import ABCMeta
+from abc import ABCMeta, abstractmethod
 
 dc_lg = lg.getLogger('data_catalog')
 
@@ -94,9 +94,10 @@ class AbstractDataCatalog(object):
     # def delete_data_point(self, data_point):
     #     assert isinstance(data_point, (dict, DataPoint, str, unicode))
 
-    # @abstractmethod
-    # def read_all_labels(self):
-    #     pass
+    @abstractmethod
+    def read_all_labels(self):
+        pass
+
     #
     # @abstractmethod
     # def read_label(self, label_name):
