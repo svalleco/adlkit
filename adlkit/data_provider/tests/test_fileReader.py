@@ -18,15 +18,16 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSI
 or implied.  See the License for the specific language governing permissions and limitations under the License.
 """
 
-import Queue
 import copy
 import ctypes
+import datetime
 import logging as lg
 import multiprocessing
 from unittest import TestCase
 
 import numpy as np
 
+from adlkit.data_provider.comm_drivers import QueueCommDriver
 from adlkit.data_provider.io_drivers import H5DataIODriver
 from adlkit.data_provider.readers import FileReader
 
@@ -54,15 +55,34 @@ class TestFileReader(TestCase):
         batch_size = 500
         read_size = 2 * batch_size
         bucket_length = 10
-        in_queue = multiprocessing.Queue(maxsize=max_batches)
-        out_queue = multiprocessing.Queue(maxsize=max_batches)
+        # in_queue = multiprocessing.Queue(maxsize=max_batches)
+        # out_queue = multiprocessing.Queue(maxsize=max_batches)
+        # in_queue_str = 'ipc:///tmp/adlkit_socks_0'
+        # out_queue_str = 'ipc:///tmp/adlkit_socks_1'
+        # controller_socket_str = 'ipc:///tmp/adlkit_socks_2'
+        #
+        #
+        #
+        # zmq_context = zmq.Context()
+        # in_queue_socket = zmq_context.socket(zmq.PUSH)
+        # in_queue_socket.setsockopt(zmq.RCVHWM, 1000)
+        # in_queue_socket.bind(in_queue_str)
+        #
+        # zmq_context = zmq.Context()
+        # out_queue_socket = zmq_context.socket(zmq.PULL)
+        # out_queue_socket.setsockopt(zmq.RCVHWM, 1000)
+        # out_queue_socket.connect(out_queue_str)
+        #
+        # sync_str = 'ipc:///tmp/adlkit_socks_3'
+        #
+        # sync_service = zmq_context.socket(zmq.REP)
+        # sync_service.bind(sync_str)
 
-        # building queue up with read requests
-        for batch in mock_batches:
-            try:
-                in_queue.put(batch, timeout=1)
-            except Queue.Full:
-                pass
+        comm_driver = QueueCommDriver({
+            'ctl': 10,
+            'in' : 100,
+            'out': 100
+        })
 
         reader_id = 0
 
@@ -86,25 +106,39 @@ class TestFileReader(TestCase):
             shared_data_pointer[bucket] = [state, data_sets, generator_start_counter,
                                            generator_end_counter]
 
-        reader = FileReader(worker_id=reader_id, in_queue=in_queue, out_queue=out_queue,
+        reader = FileReader(worker_id=reader_id,
+                            # controller_socket_str=controller_socket_str,
+                            # sync_str=sync_str,
+                            # in_queue_str=in_queue_str,
+                            # out_queue_str=out_queue_str,
+                            comm_driver=comm_driver,
                             shared_memory_pointer=shared_data_pointer,
                             max_batches=max_batches, read_size=read_size,
                             class_index_map=mock_class_index_map,
                             file_index_list=mock_file_index_list,
                             io_driver=H5DataIODriver())
 
+        # building queue up with read requests
+        for batch in mock_batches:
+            success = comm_driver.write('in', batch, block=False)
+            self.assertTrue(success)
+
         reader.read()
 
         out = list()
-        for _ in range(max_batches):
-            batch = None
-            try:
-                batch = out_queue.get(timeout=1)
-            except Queue.Empty:
-                pass
-            finally:
-                if batch is not None:
-                    out.append(batch)
+        start_time = datetime.datetime.utcnow()
+        end_time = datetime.timedelta(seconds=10) + start_time
+        while datetime.datetime.utcnow() < end_time and len(out) != max_batches:
+            # batch = None
+            # try:
+            # batch = out_queue.get(timeout=1)
+            batch = comm_driver.read('out', block=False)
+            # except Queue.Empty:
+            # except zmq.ZMQError:
+            #     pass
+            # finally:
+            if batch is not None:
+                out.append(batch)
 
         self.assertEquals(len(out), max_batches,
                           "test consumed {0} of {1} expected batches from the in_queue".format(
@@ -132,15 +166,19 @@ class TestFileReader(TestCase):
         batch_size = 500
         read_size = 2 * batch_size
         bucket_length = 10
-        in_queue = multiprocessing.Queue(maxsize=max_batches)
-        out_queue = multiprocessing.Queue(maxsize=max_batches)
+        # in_queue = multiprocessing.Queue(maxsize=max_batches)
+        # out_queue = multiprocessing.Queue(maxsize=max_batches)
+
+        comm_driver = QueueCommDriver({
+            'ctl': 10,
+            'in' : 100,
+            'out': 100
+        })
 
         # building queue up with read requests
         for batch in mock_batches:
-            try:
-                in_queue.put(batch, timeout=1)
-            except Queue.Full:
-                pass
+            success = comm_driver.write('in', batch)
+            self.assertTrue(success)
 
         reader_id = 0
 
@@ -164,7 +202,8 @@ class TestFileReader(TestCase):
             shared_data_pointer[bucket] = [state, data_sets, generator_start_counter,
                                            generator_end_counter]
 
-        reader = FileReader(worker_id=reader_id, in_queue=in_queue, out_queue=out_queue,
+        reader = FileReader(worker_id=reader_id,
+                            comm_driver=comm_driver,
                             shared_memory_pointer=shared_data_pointer,
                             max_batches=max_batches, read_size=read_size,
                             class_index_map=mock_class_index_map,
@@ -174,15 +213,12 @@ class TestFileReader(TestCase):
         reader.read()
 
         out = list()
-        for _ in range(max_batches):
-            batch = None
-            try:
-                batch = out_queue.get(timeout=1)
-            except Queue.Empty:
-                pass
-            finally:
-                if batch is not None:
-                    out.append(batch)
+        start_time = datetime.datetime.utcnow()
+        end_time = datetime.timedelta(seconds=10) + start_time
+        while datetime.datetime.utcnow() < end_time and len(out) != max_batches:
+            batch = comm_driver.read('out', block=False)
+            if batch is not None:
+                out.append(batch)
 
         self.assertEquals(len(out), max_batches,
                           "test consumed {0} of {1} expected batches from the in_queue".format(
@@ -216,15 +252,19 @@ class TestFileReader(TestCase):
         batch_size = 500
         read_size = 2 * batch_size
         bucket_length = 10
-        in_queue = multiprocessing.Queue(maxsize=max_batches)
-        out_queue = multiprocessing.Queue(maxsize=max_batches)
+        # in_queue = multiprocessing.Queue(maxsize=max_batches)
+        # out_queue = multiprocessing.Queue(maxsize=max_batches)
+
+        comm_driver = QueueCommDriver({
+            'ctl': 10,
+            'in' : 100,
+            'out': 100
+        })
 
         # building queue up with read requests
         for batch in mock_batches:
-            try:
-                in_queue.put(batch, timeout=1)
-            except Queue.Full:
-                pass
+            success = comm_driver.write('in', batch)
+            self.assertTrue(success)
 
         reader_id = 0
         shared_data_pointer = range(bucket_length)
@@ -249,7 +289,8 @@ class TestFileReader(TestCase):
             shared_data_pointer[bucket] = [state, data_sets, generator_start_counter,
                                            generator_end_counter]
 
-        reader = FileReader(worker_id=reader_id, in_queue=in_queue, out_queue=out_queue,
+        reader = FileReader(worker_id=reader_id,
+                            comm_driver=comm_driver,
                             shared_memory_pointer=shared_data_pointer,
                             max_batches=max_batches, read_size=read_size,
                             class_index_map=mock_class_index_map,
@@ -260,15 +301,12 @@ class TestFileReader(TestCase):
         reader.read()
 
         out = list()
-        for _ in range(max_batches):
-            batch = None
-            try:
-                batch = out_queue.get(timeout=1)
-            except Queue.Empty:
-                pass
-            finally:
-                if batch is not None:
-                    out.append(batch)
+        start_time = datetime.datetime.utcnow()
+        end_time = datetime.timedelta(seconds=10) + start_time
+        while datetime.datetime.utcnow() < end_time and len(out) != max_batches:
+            batch = comm_driver.read('out', block=False)
+            if batch is not None:
+                out.append(batch)
 
         self.assertEquals(len(out), max_batches,
                           "test consumed {0} of {1} expected batches from the in_queue".format(
@@ -289,15 +327,16 @@ class TestFileReader(TestCase):
         batch_size = 100
         read_size = 2 * batch_size
         bucket_length = 10
-        in_queue = multiprocessing.Queue(maxsize=max_batches)
-        out_queue = multiprocessing.Queue(maxsize=max_batches)
+        comm_driver = QueueCommDriver({
+            'ctl': 10,
+            'in' : 100,
+            'out': 100
+        })
 
         # building queue up with read requests
         for batch in mock_filtered_batches:
-            try:
-                in_queue.put(batch, timeout=1)
-            except Queue.Full:
-                pass
+            success = comm_driver.write('in', batch)
+            self.assertTrue(success)
 
         reader_id = 0
         shared_data_pointer = range(bucket_length)
@@ -322,7 +361,8 @@ class TestFileReader(TestCase):
             shared_data_pointer[bucket] = [state, data_sets, generator_start_counter,
                                            generator_end_counter]
 
-        reader = FileReader(worker_id=reader_id, in_queue=in_queue, out_queue=out_queue,
+        reader = FileReader(worker_id=reader_id,
+                            comm_driver=comm_driver,
                             shared_memory_pointer=shared_data_pointer,
                             max_batches=max_batches, read_size=read_size,
                             class_index_map=mock_class_index_map,
@@ -334,15 +374,12 @@ class TestFileReader(TestCase):
         reader.read()
 
         out = list()
-        for _ in range(max_batches):
-            batch = None
-            try:
-                batch = out_queue.get(timeout=1)
-            except Queue.Empty:
-                pass
-            finally:
-                if batch is not None:
-                    out.append(batch)
+        start_time = datetime.datetime.utcnow()
+        end_time = datetime.timedelta(seconds=10) + start_time
+        while datetime.datetime.utcnow() < end_time and len(out) != max_batches:
+            batch = comm_driver.read('out', block=False)
+            if batch is not None:
+                out.append(batch)
 
         self.assertEquals(len(out), max_batches,
                           "test consumed {0} of {1} expected batches from the in_queue".format(
@@ -428,15 +465,16 @@ class TestFileReader(TestCase):
         batch_size = 500
         read_size = 2 * batch_size
         bucket_length = 10
-        in_queue = multiprocessing.Queue(maxsize=max_batches)
-        out_queue = multiprocessing.Queue(maxsize=max_batches)
+        comm_driver = QueueCommDriver({
+            'ctl': 10,
+            'in' : 100,
+            'out': 100
+        })
 
         # building queue up with read requests
         for batch in mock_batches:
-            try:
-                in_queue.put(batch, timeout=1)
-            except Queue.Full:
-                pass
+            success = comm_driver.write('in', batch)
+            self.assertTrue(success)
 
         reader_id = 0
         shared_data_pointer = range(bucket_length)
@@ -461,7 +499,8 @@ class TestFileReader(TestCase):
             shared_data_pointer[bucket] = [state, data_sets, generator_start_counter,
                                            generator_end_counter]
 
-        reader = FileReader(worker_id=reader_id, in_queue=in_queue, out_queue=out_queue,
+        reader = FileReader(worker_id=reader_id,
+                            comm_driver=comm_driver,
                             shared_memory_pointer=shared_data_pointer,
                             max_batches=max_batches,
                             read_size=read_size,
@@ -475,17 +514,12 @@ class TestFileReader(TestCase):
         reader.read()
 
         out = list()
-        for _ in range(max_batches):
-            batch = None
-            try:
-                batch = out_queue.get(timeout=1)
-            except Queue.Empty:
-                pass
-            finally:
-                if batch is not None:
-                    # TODO check batch for things
-                    # file_tuple = batch[-1]
-                    out.append(batch)
+        start_time = datetime.datetime.utcnow()
+        end_time = datetime.timedelta(seconds=10) + start_time
+        while datetime.datetime.utcnow() < end_time and len(out) != max_batches:
+            batch = comm_driver.read('out', block=False)
+            if batch is not None:
+                out.append(batch)
 
         self.assertEquals(len(out), max_batches,
                           "test consumed {0} of {1} expected batches from the in_queue".format(

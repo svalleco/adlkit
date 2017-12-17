@@ -20,12 +20,13 @@ or implied.  See the License for the specific language governing permissions and
 
 from __future__ import absolute_import
 
-import Queue
 import copy
+import datetime
 import logging as lg
+import os
 from unittest import TestCase
 
-import os
+import numpy as np
 
 from adlkit.data_provider.data_providers import FileDataProvider
 from adlkit.data_provider.fillers import FileFiller
@@ -187,25 +188,21 @@ class TestFileDataProvider(TestCase):
         max_batches = 10
 
         out = list()
-        while True:
-            if len(out) == max_batches:
-                break
-            batch = None
-            try:
-                batch = tmp_data_provider.in_queue.get(timeout=1)
-            except Queue.Empty:
-                pass
-            finally:
-                if batch is not None:
-                    out.append(batch)
-                    count = 0
-                    for item in batch:
-                        count += item[3][1] - item[3][0]
+        start_time = datetime.datetime.utcnow()
+        end_time = datetime.timedelta(seconds=10) + start_time
+        while datetime.datetime.utcnow() < end_time and len(out) != max_batches:
+            batch = tmp_data_provider.comm_driver.read('in', block=False)
 
-                    self.assertEquals(count, tmp_data_provider.config.read_size,
-                                      "batch was returned with batch_size {0}, instead of batch_size {1}".format(
-                                              count,
-                                              tmp_data_provider.config.batch_size))
+            if batch is not None:
+                out.append(batch)
+                count = 0
+                for item in batch:
+                    count += item[3][1] - item[3][0]
+
+                self.assertEquals(count, tmp_data_provider.config.read_size,
+                                  "batch was returned with batch_size {0}, instead of batch_size {1}".format(
+                                          count,
+                                          tmp_data_provider.config.batch_size))
 
         self.assertEquals(len(out), max_batches,
                           "test consumed {0} of {1} expected batches from the in_queue".format(
@@ -230,10 +227,8 @@ class TestFileDataProvider(TestCase):
 
         # inserting mock data into the queue
         for batch in mock_batches:
-            try:
-                tmp_data_provider.in_queue.put(batch, timeout=1)
-            except Queue.Full:
-                pass
+            success = tmp_data_provider.comm_driver.write('in', batch)
+            self.assertTrue(success)
 
         tmp_data_provider.malloc_requests = mock_expected_malloc_requests
 
@@ -243,17 +238,16 @@ class TestFileDataProvider(TestCase):
         max_batches = 5
 
         out = list()
-        while True:
-            if len(out) == max_batches:
-                break
-            batch = None
-            try:
-                batch = tmp_data_provider.out_queue.get(timeout=1)
-            except Queue.Empty:
-                pass
-            finally:
-                if batch is not None:
-                    out.append(batch)
+        start_time = datetime.datetime.utcnow()
+        end_time = datetime.timedelta(seconds=10) + start_time
+        while datetime.datetime.utcnow() < end_time and len(out) != max_batches:
+            # try:
+            batch = tmp_data_provider.comm_driver.read('out', block=False)
+            # except Queue.Empty:
+            #     pass
+            # finally:
+            if batch is not None:
+                out.append(batch)
 
         for item in out:
             tmp_worker_id, tmp_bucket_index, tmp_data_sets, batch_id = item
@@ -286,9 +280,10 @@ class TestFileDataProvider(TestCase):
         max_batches = 5
         # inserting mock data into the queue
         for batch in mock_batches:
-            try:
-                tmp_data_provider.in_queue.put(batch, timeout=1)
-            except Queue.Full:
+            # try:
+            success = tmp_data_provider.comm_driver.write('in', batch, block=False)
+            # except Queue.Full:
+            if not success:
                 lg.debug("CRITICAL, CANNOT FILL QUEUE WITH BATCHES, "
                          "DECRIMENTING max_batches")
                 max_batches -= 1
@@ -300,17 +295,18 @@ class TestFileDataProvider(TestCase):
         # lg.debug("I am expecting to write to {0}".format(hex(id(tmp_data_provider.shared_memory[0][0][1][0]))))
 
         out = list()
-        while True:
-            if len(out) == max_batches:
-                break
-            batch = None
-            try:
-                batch = tmp_data_provider.out_queue.get(timeout=1)
-            except Queue.Empty:
-                pass
-            finally:
-                if batch is not None:
-                    out.append(batch)
+        start_time = datetime.datetime.utcnow()
+        end_time = datetime.timedelta(seconds=10) + start_time
+        while datetime.datetime.utcnow() < end_time and len(out) != max_batches:
+            # batch = None
+            # try:
+            # batch = tmp_data_provider.out_queue.get(timeout=1)
+            batch = tmp_data_provider.comm_driver.read('out', block=True)
+            # except Queue.Empty:
+            #     pass
+            # finally:
+            if batch is not None:
+                out.append(batch)
 
         for item in out:
             tmp_worker_id, tmp_bucket_index, tmp_data_sets, batch_id = item
@@ -342,13 +338,15 @@ class TestFileDataProvider(TestCase):
                                              sleep_duration=sleep_duration)
 
         tmp_data_provider.start_queues()
-        max_batches = 5
+        max_batches = len(mock_batches)
         # max_batches = 100
         # inserting mock data into the queue (should probably be a function at this point)
         for batch in mock_batches:
-            try:
-                tmp_data_provider.in_queue.put(batch, timeout=1)
-            except Queue.Full:
+            # try:
+            # tmp_data_provider.in_queue.put(batch, timeout=1)
+            success = tmp_data_provider.comm_driver.write('in', batch, block=False)
+            # except Queue.Full:
+            if not success:
                 max_batches -= 1
 
         tmp_data_provider.malloc_requests = mock_expected_malloc_requests
@@ -357,7 +355,7 @@ class TestFileDataProvider(TestCase):
                                        io_driver=H5DataIODriver())
         # lg.debug("I am expecting to write to {0}".format(hex(id(tmp_data_provider.shared_memory[0][0][1][0]))))
 
-        this = BaseGenerator(out_queue=tmp_data_provider.out_queue,
+        this = BaseGenerator(comm_driver=tmp_data_provider.comm_driver,
                              batch_size=tmp_data_provider.config.batch_size,
                              read_size=tmp_data_provider.config.read_size,
                              max_batches=max_batches,
@@ -366,6 +364,7 @@ class TestFileDataProvider(TestCase):
                              class_index_map=mock_class_index_map)
 
         batch_size = tmp_data_provider.config.batch_size
+        self.assertGreater(max_batches, 0)
         for _ in range(max_batches):
             tmp = this.generate().next()
             self.assertEqual(len(tmp), 2)
@@ -390,12 +389,14 @@ class TestFileDataProvider(TestCase):
                                              sleep_duration=sleep_duration)
 
         tmp_data_provider.start_queues()
-        max_batches = 5
+        max_batches = len(mock_batches)
         # inserting mock data, once again
         for batch in mock_batches:
-            try:
-                tmp_data_provider.in_queue.put(batch, timeout=1)
-            except Queue.Full:
+            # try:
+            # tmp_data_provider.in_queue.put(batch, timeout=1)
+            success = tmp_data_provider.comm_driver.write('in', batch, block=False)
+            # except Queue.Full:
+            if not success:
                 max_batches -= 1
 
         tmp_data_provider.malloc_requests = mock_expected_malloc_requests
@@ -404,13 +405,15 @@ class TestFileDataProvider(TestCase):
                                        io_driver=H5DataIODriver())
         # lg.debug("I am expecting to write to {0}".format(hex(id(tmp_data_provider.shared_memory[0][0][1][0]))))
 
-        this = BaseGenerator(out_queue=tmp_data_provider.out_queue,
-                             batch_size=tmp_data_provider.config.batch_size,
-                             read_size=tmp_data_provider.config.read_size,
-                             max_batches=max_batches,
-                             shared_memory_pointer=tmp_data_provider.shared_memory,
-                             file_index_list=mock_file_index_list,
-                             class_index_map=mock_class_index_map)
+        this = BaseGenerator(
+                # out_queue=tmp_data_provider.out_queue,
+                comm_driver=tmp_data_provider.comm_driver,
+                batch_size=tmp_data_provider.config.batch_size,
+                read_size=tmp_data_provider.config.read_size,
+                max_batches=max_batches,
+                shared_memory_pointer=tmp_data_provider.shared_memory,
+                file_index_list=mock_file_index_list,
+                class_index_map=mock_class_index_map)
 
         count = 0
         for tmp in this.generate():
@@ -474,13 +477,13 @@ class TestFileDataProvider(TestCase):
         tmp_file_data_provider.start_queues()
         tmp_file_data_provider.stop_queues()
 
-        self.assertIsNone(tmp_file_data_provider.in_queue,
-                          "in_queue did not close")
-        self.assertIsNone(tmp_file_data_provider.out_queue,
-                          "out_queue did not close")
-        self.assertIsNone(tmp_file_data_provider.malloc_queue,
-                          "malloc_queue did not close")
-        self.assertEqual(len(tmp_file_data_provider.multicast_queues), 0,
+        # self.assertIsNone(tmp_file_data_provider.in_queue,
+        #                   "in_queue did not close")
+        # self.assertIsNone(tmp_file_data_provider.out_queue,
+        #                   "out_queue did not close")
+        self.assertIsNone(tmp_file_data_provider.comm_driver,
+                          "comm_driver did not close")
+        self.assertEqual(len(tmp_file_data_provider.proxy_comm_drivers), 0,
                          "malloc_queue did not close")
 
         del tmp_file_data_provider
@@ -623,7 +626,7 @@ class TestFileDataProvider(TestCase):
         from adlkit.data_provider.tests.mock_config import mock_sample_specification
         mock_sample_specification = copy.deepcopy(mock_sample_specification)
 
-        max_batches = 100
+        max_batches = 10
         batch_size = 100
         n_generators = 5
 
@@ -643,7 +646,7 @@ class TestFileDataProvider(TestCase):
                                 watcher_class=BaseWatcher)
 
         # ugly, but mostly necessary
-        generator_counter = [0] * n_generators
+        generator_counter = [[] for _ in range(n_generators)]
         total_count = 0
         for loop in range(max_batches):
             for gen_index in range(len(tmp_data_provider.generators)):
@@ -651,13 +654,20 @@ class TestFileDataProvider(TestCase):
                 this = tmp_data_provider.generators[gen_index].generate().next()
 
                 self.assertEqual(len(this), 4)
-                generator_counter[gen_index] += 1
+                generator_counter[gen_index].append(this)
                 total_count += 1
 
         for generator_count in generator_counter:
-            self.assertEqual(generator_count, max_batches)
+            self.assertEqual(len(generator_count), max_batches)
+
+        for p_index, payload in enumerate(generator_counter[0]):
+            for e_index, entry in enumerate(payload):
+                for generator_output in generator_counter:
+                    self.assertTrue(np.array_equal(generator_output[p_index][e_index], entry))
 
         self.assertEqual(total_count, max_batches * n_generators)
+
+        tmp_data_provider.hard_stop()
 
     def test_watcher_multicast(self):
         from adlkit.data_provider.tests.mock_config import mock_read_batches, \
@@ -686,62 +696,69 @@ class TestFileDataProvider(TestCase):
         tmp_data_provider.make_shared_malloc(0)
 
         for batch in mock_read_batches:
-            try:
-                tmp_data_provider.out_queue.put(batch, timeout=0)
-            except Queue.Full:
+            # try:
+            # tmp_data_provider.out_queue.put(batch, timeout=0)
+            success = tmp_data_provider.comm_driver.write('out', batch, block=False)
+            # except Queue.Full:
+            if not success:
                 max_batches -= 1
 
         tmp_watcher = BaseWatcher(worker_id=0,
+                                  comm_driver=tmp_data_provider.comm_driver,
+                                  proxy_comm_drivers=tmp_data_provider.proxy_comm_drivers,
                                   shared_memory_pointer=tmp_data_provider.shared_memory,
-                                  multicast_queues=tmp_data_provider.multicast_queues,
+                                  # multicast_queues=tmp_data_provider.multicast_queues,
                                   max_batches=max_batches,
-                                  out_queue=tmp_data_provider.out_queue)
+                                  # out_queue=tmp_data_provider.out_queue
+                                  )
 
         tmp_watcher.watch()
 
         gen_counter = [0] * 5
 
         for loop in range(max_batches):
-            for gen_index in range(len(tmp_data_provider.multicast_queues)):
-                this = None
-                try:
-                    this = tmp_data_provider.multicast_queues[gen_index].get()
-                except Queue.Empty:
-                    pass
-                finally:
-                    if this is not None:
-                        gen_counter[gen_index] += 1
+            for index, comm_driver in enumerate(tmp_data_provider.proxy_comm_drivers):
+                # this = None
+                # try:
+                # this = tmp_data_provider.multicast_queues[gen_index].get()
+                this = comm_driver.read('out', block=False)
+                # except Queue.Empty:
+                #     pass
+                # finally:
+                if this is not None:
+                    gen_counter[index] += 1
 
         for gen_count in gen_counter:
             self.assertEqual(gen_count, max_batches)
 
-            # def test_watcher_free(self):
-            #     import logging as lg
-            #
-            #     lg.basicConfig(level=lg.DEBUG)
-            #
-            #     import copy
-            #     from tests.mock_config import mock_sample_specification
-            #     from threaded_gen_two import FileDataProvider, BaseWatcher, BaseGenerator, H5Reader, H5Filler
-            #
-            #     mock_sample_specification = copy.deepcopy(mock_sample_specification)
-            #
-            #     batch_size = 100
-            #     max_batches = 5
-            #     n_generators = 5
-            #     tmp_data_provider = FileDataProvider(mock_sample_specification,
-            #                                          batch_size=batch_size,
-            #                                          read_multipler=2,
-            #                                          make_one_hot=True,
-            #                                          make_class_index=True,
-            #                                          n_readers=5,
-            #                                          n_generators=n_generators)
-            #
-            #     tmp_data_provider.start(filler_class=H5Filler,
-            #                             reader_class=H5Reader,
-            #                             generator_class=BaseGenerator,
-            #                             watcher_class=BaseWatcher)
-            #     for _ in range(100):
-            #         for generator_index in range(tmp_data_provider.config.n_generators):
-            #             tmp_data_provider.generators[generator_index].generate().next()
-            #             lg.debug(tmp_data_provider.shared_memory[0][0][2].value)
+        tmp_data_provider.hard_stop()
+    # def test_watcher_free(self):
+    #     import logging as lg
+    #
+    #     lg.basicConfig(level=lg.DEBUG)
+    #
+    #     import copy
+    #     from tests.mock_config import mock_sample_specification
+    #     from threaded_gen_two import FileDataProvider, BaseWatcher, BaseGenerator, H5Reader, H5Filler
+    #
+    #     mock_sample_specification = copy.deepcopy(mock_sample_specification)
+    #
+    #     batch_size = 100
+    #     max_batches = 5
+    #     n_generators = 5
+    #     tmp_data_provider = FileDataProvider(mock_sample_specification,
+    #                                          batch_size=batch_size,
+    #                                          read_multipler=2,
+    #                                          make_one_hot=True,
+    #                                          make_class_index=True,
+    #                                          n_readers=5,
+    #                                          n_generators=n_generators)
+    #
+    #     tmp_data_provider.start(filler_class=H5Filler,
+    #                             reader_class=H5Reader,
+    #                             generator_class=BaseGenerator,
+    #                             watcher_class=BaseWatcher)
+    #     for _ in range(100):
+    #         for generator_index in range(tmp_data_provider.config.n_generators):
+    #             tmp_data_provider.generators[generator_index].generate().next()
+    #             lg.debug(tmp_data_provider.shared_memory[0][0][2].value)

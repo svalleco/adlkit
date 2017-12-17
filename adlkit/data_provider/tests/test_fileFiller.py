@@ -18,23 +18,26 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSI
 or implied.  See the License for the specific language governing permissions and limitations under the License.
 """
 
-import Queue
 import copy
+import datetime
 import logging as lg
-import multiprocessing
 from unittest import TestCase
 
+from adlkit.data_provider.comm_drivers import QueueCommDriver
 from adlkit.data_provider.fillers import FileFiller
 from adlkit.data_provider.io_drivers import H5DataIODriver
 
 lg.basicConfig(level=lg.INFO, format='%(asctime)s %(levelname)s %(name)s %(message)s ')
 test_logger = lg.getLogger('data_providers.tests')
+test_logger.setLevel(lg.DEBUG)
 
 
 class TestFileFiller(TestCase):
     def test_fill(self):
+
         from mock_config import mock_classes, mock_class_index_map, \
             mock_data_sets, mock_file_index_list
+
         mock_classes = copy.deepcopy(mock_classes)
         mock_class_index_map = copy.deepcopy(mock_class_index_map)
         mock_data_sets = copy.deepcopy(mock_data_sets)
@@ -42,13 +45,19 @@ class TestFileFiller(TestCase):
         max_batches = 10
         batch_size = 500
         read_size = batch_size * 2
-        in_queue = multiprocessing.Queue(maxsize=max_batches)
-        malloc_queue = multiprocessing.Queue(maxsize=max_batches)
+
+        comm_driver = QueueCommDriver({
+            'ctl'   : 10,
+            'in'    : 100,
+            'malloc': 100
+        })
 
         filler = FileFiller(classes=mock_classes,
                             class_index_map=mock_class_index_map,
-                            in_queue=in_queue, worker_id=1, read_size=read_size,
-                            max_batches=max_batches, malloc_queue=malloc_queue,
+                            comm_driver=comm_driver,
+                            worker_id=1,
+                            read_size=read_size,
+                            max_batches=max_batches,
                             data_sets=mock_data_sets,
                             file_index_list=mock_file_index_list,
                             wrap_examples=True,
@@ -58,23 +67,22 @@ class TestFileFiller(TestCase):
         filler.fill()
 
         out = list()
-        for _ in range(max_batches):
-            batch = None
-            try:
-                batch = in_queue.get(timeout=1)
-            except Queue.Empty:
-                pass
-            finally:
-                if batch is not None:
-                    out.append(batch)
-                    count = 0
-                    for item in batch:
-                        count += item[3][1] - item[3][0]
+        start_time = datetime.datetime.utcnow()
+        end_time = datetime.timedelta(seconds=10) + start_time
+        while datetime.datetime.utcnow() < end_time:
+            batch = comm_driver.read('in', block=False)
+            if batch is not None:
+                out.append(batch)
+                count = 0
+                for item in batch:
+                    count += item[3][1] - item[3][0]
 
-                    self.assertEquals(count, read_size,
-                                      "read_batch was returned with read_size {0}, instead of batch_size {1}".format(
-                                              count,
-                                              batch_size))
+                self.assertEquals(count, read_size,
+                                  "read_batch was returned with read_size {0}, instead of batch_size {1}".format(
+                                          count,
+                                          batch_size))
+            if len(out) == max_batches:
+                break
 
         self.assertEquals(len(out), max_batches,
                           "test consumed {0} of {1} expected batches from the in_queue".format(
@@ -91,13 +99,19 @@ class TestFileFiller(TestCase):
         max_batches = 5
         batch_size = 200
         read_size = batch_size * 2
-        in_queue = multiprocessing.Queue(maxsize=max_batches)
-        malloc_queue = multiprocessing.Queue(maxsize=max_batches)
+
+        comm_driver = QueueCommDriver({
+            'ctl'   : 10,
+            'in'    : 100,
+            'malloc': 100
+        })
 
         filler = FileFiller(classes=mock_classes,
                             class_index_map=mock_class_index_map,
-                            in_queue=in_queue, worker_id=1, read_size=read_size,
-                            max_batches=max_batches, malloc_queue=malloc_queue,
+                            comm_driver=comm_driver,
+                            worker_id=1,
+                            read_size=read_size,
+                            max_batches=max_batches,
                             data_sets=mock_data_sets,
                             file_index_list=mock_file_index_list,
                             io_driver=H5DataIODriver())
@@ -105,18 +119,19 @@ class TestFileFiller(TestCase):
         filler.fill()
 
         out = list()
-        for _ in range(max_batches):
-            malloc_request = None
-            try:
-                malloc_request = malloc_queue.get(timeout=1)
-            except Queue.Empty:
-                pass
-            finally:
-                if malloc_request is not None:
-                    out.extend(malloc_request)
+        start_time = datetime.datetime.utcnow()
+        end_time = datetime.timedelta(seconds=10) + start_time
+        while datetime.datetime.utcnow() < end_time:
+            malloc_request = comm_driver.read('malloc', block=False)
 
-        for request, expected_request in zip(out,
-                                             mock_expected_malloc_requests):
+            if malloc_request is not None:
+                out.extend(malloc_request)
+
+            if len(out) == len(mock_expected_malloc_requests):
+                break
+
+        self.assertEqual(len(out), len(mock_expected_malloc_requests))
+        for request, expected_request in zip(out, mock_expected_malloc_requests):
             self.assertEqual(request, expected_request)
 
     def test_fill_with_wrap(self):
@@ -134,14 +149,19 @@ class TestFileFiller(TestCase):
         max_batches = 10
         batch_size = 500
         read_size = batch_size * 2
-        in_queue = multiprocessing.Queue(maxsize=max_batches)
-        malloc_queue = multiprocessing.Queue(maxsize=max_batches)
+
+        comm_driver = QueueCommDriver({
+            'ctl'   : 10,
+            'in'    : 100,
+            'malloc': 100
+        })
 
         filler = FileFiller(classes=mock_classes,
                             class_index_map=mock_class_index_map,
-                            in_queue=in_queue,
-                            worker_id=1, read_size=read_size,
-                            max_batches=max_batches, malloc_queue=malloc_queue,
+                            comm_driver=comm_driver,
+                            worker_id=1,
+                            read_size=read_size,
+                            max_batches=max_batches,
                             wrap_examples=True, data_sets=mock_data_sets,
                             file_index_list=mock_file_index_list,
                             io_driver=H5DataIODriver())
@@ -149,25 +169,26 @@ class TestFileFiller(TestCase):
         filler.fill()
 
         out = int()
-        for _ in range(max_batches):
-            batch = None
-            try:
-                batch = in_queue.get(timeout=1)
-            except Queue.Empty:
-                pass
-            finally:
-                if batch is not None:
-                    out += 1
-                    count = 0
-                    for item in batch:
-                        count += item[3][1] - item[3][0]
+        start_time = datetime.datetime.utcnow()
+        end_time = datetime.timedelta(seconds=10) + start_time
+        while datetime.datetime.utcnow() < end_time:
 
-                    self.assertEquals(count, read_size,
-                                      "read_batch was returned with read_size {0}, instead of batch_size {1} \n {"
-                                      "2}".format(
-                                              count,
-                                              read_size,
-                                              batch))
+            batch = comm_driver.read('in', block=False)
+
+            if batch is not None:
+                out += 1
+                count = 0
+                for item in batch:
+                    count += item[3][1] - item[3][0]
+
+                self.assertEquals(count, read_size,
+                                  "read_batch was returned with read_size {0}, instead of batch_size {1} \n {"
+                                  "2}".format(
+                                          count,
+                                          read_size,
+                                          batch))
+            if out == max_batches:
+                break
 
         self.assertEquals(out, max_batches,
                           "test consumed {0} of {1} expected batches from the in_queue".format(
@@ -193,40 +214,58 @@ class TestFileFiller(TestCase):
         max_batches = 4
         batch_size = 500
         read_size = batch_size * 2
-        in_queue = multiprocessing.Queue(maxsize=max_batches)
-        malloc_queue = multiprocessing.Queue(maxsize=max_batches)
+        # in_queue_str = 'ipc:///tmp/adlkit_socks_0'
+        # malloc_queue_str = 'ipc:///tmp/adlkit_socks_1'
+        # controller_socket_str = 'ipc:///tmp/adlkit_socks_2'
+
+        # zmq_context = zmq.Context()
+        # in_queue_socket = zmq_context.socket(zmq.PULL)
+        # in_queue_socket.setsockopt(zmq.RCVHWM, 100)
+        # in_queue_socket.connect(in_queue_str)
+        #
+        # malloc_queue_socket = zmq_context.socket(zmq.PULL)
+        # malloc_queue_socket.setsockopt(zmq.RCVHWM, 100)
+        # malloc_queue_socket.connect(malloc_queue_str)
+
+        comm_driver = QueueCommDriver({
+            'ctl'   : 10,
+            'in'    : 100,
+            'malloc': 100
+        })
 
         filler = FileFiller(classes=mock_classes,
                             class_index_map=mock_class_index_map,
-                            in_queue=in_queue,
-                            worker_id=1, read_size=read_size,
-                            max_batches=max_batches, malloc_queue=malloc_queue,
-                            wrap_examples=False, data_sets=mock_data_sets,
+                            comm_driver=comm_driver,
+                            worker_id=1,
+                            read_size=read_size,
+                            max_batches=max_batches,
+                            wrap_examples=False,
+                            data_sets=mock_data_sets,
                             file_index_list=mock_file_index_list,
                             io_driver=H5DataIODriver())
 
         filler.fill()
 
         out = int()
-        for _ in range(max_batches):
-            batch = None
-            try:
-                batch = in_queue.get(timeout=1)
-            except Queue.Empty:
-                pass
-            finally:
-                if batch is not None:
-                    out += 1
-                    count = 0
-                    for item in batch:
-                        count += item[3][1] - item[3][0]
+        start_time = datetime.datetime.utcnow()
+        end_time = datetime.timedelta(seconds=10) + start_time
+        while datetime.datetime.utcnow() < end_time:
 
-                    self.assertEquals(count, read_size,
-                                      "read_batch was returned with read_size {0}, instead of batch_size {1} \n {"
-                                      "2}".format(
-                                              count,
-                                              read_size,
-                                              batch))
+            batch = comm_driver.read('in', block=False)
+            if batch is not None:
+                out += 1
+                count = 0
+                for item in batch:
+                    count += item[3][1] - item[3][0]
+
+                self.assertEquals(count, read_size,
+                                  "read_batch was returned with read_size {0}, instead of batch_size {1} \n {"
+                                  "2}".format(
+                                          count,
+                                          read_size,
+                                          batch))
+            if out == expected_batches:
+                break
 
         self.assertEquals(out, expected_batches,
                           "test consumed {0} of {1} expected batches from the in_queue".format(
@@ -243,15 +282,21 @@ class TestFileFiller(TestCase):
         max_batches = 3
         batch_size = 100
         read_size = batch_size * 2
-        in_queue = multiprocessing.Queue(maxsize=max_batches)
-        malloc_queue = multiprocessing.Queue(maxsize=max_batches)
+
+        comm_driver = QueueCommDriver({
+            'ctl'   : 10,
+            'in'    : 100,
+            'malloc': 100
+        })
 
         filler = FileFiller(classes=mock_classes,
                             class_index_map=mock_class_index_map,
-                            in_queue=in_queue,
-                            worker_id=1, read_size=read_size,
-                            max_batches=max_batches, malloc_queue=malloc_queue,
-                            wrap_examples=False, data_sets=mock_data_sets,
+                            comm_driver=comm_driver,
+                            worker_id=1,
+                            read_size=read_size,
+                            max_batches=max_batches,
+                            wrap_examples=False,
+                            data_sets=mock_data_sets,
                             filter_function=mock_filter_function,
                             file_index_list=mock_file_index_list,
                             io_driver=H5DataIODriver())
@@ -260,27 +305,27 @@ class TestFileFiller(TestCase):
 
         out = 0
         meow = list()
-        for _ in range(max_batches):
-            batch = None
-            try:
-                batch = in_queue.get(timeout=1)
-            except Queue.Empty:
-                pass
-            finally:
-                if batch is not None:
-                    meow.append(batch)
-                    out += 1
-                    count = 0
-                    for item in batch:
-                        count += len(item[3])
+        start_time = datetime.datetime.utcnow()
+        end_time = datetime.timedelta(seconds=10) + start_time
+        while datetime.datetime.utcnow() < end_time:
 
-                    self.assertEquals(count, read_size,
-                                      "read_batch was returned with read_size {0}, instead of batch_size {1} \n {"
-                                      "2}".format(
-                                              count,
-                                              read_size,
-                                              batch))
+            batch = comm_driver.read('in', block=False)
 
+            if batch is not None:
+                meow.append(batch)
+                out += 1
+                count = 0
+                for item in batch:
+                    count += len(item[3])
+
+                self.assertEquals(count, read_size,
+                                  "read_batch was returned with read_size {0}, instead of batch_size {1} \n {"
+                                  "2}".format(
+                                          count,
+                                          read_size,
+                                          batch))
+            if out == max_batches:
+                break
         self.assertEquals(out, max_batches,
                           "test consumed {0} of {1} expected batches from the in_queue".format(
                                   out, max_batches))

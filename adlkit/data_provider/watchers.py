@@ -18,7 +18,6 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSI
 or implied.  See the License for the specific language governing permissions and limitations under the License.
 """
 
-import Queue
 import logging as lg
 import signal
 import time
@@ -31,13 +30,14 @@ watcher_logger = lg.getLogger('data_provider.workers.watcher')
 
 class BaseWatcher(Worker):
     def __init__(self, worker_id, shared_memory_pointer,
-                 multicast_queues, out_queue, max_batches=None, **kwargs):
-        super(BaseWatcher, self).__init__(worker_id + WATCHER_OFFSET, **kwargs)
+                 proxy_comm_drivers, comm_driver, max_batches=None, **kwargs):
+        super(BaseWatcher, self).__init__(worker_id + WATCHER_OFFSET, comm_driver=comm_driver, **kwargs)
         self.shared_memory_pointer = shared_memory_pointer
-        self.multicast_queues = multicast_queues
-        self.out_queue = out_queue
+        self.proxy_comm_drivers = proxy_comm_drivers
+        # self.multicast_queues = multicast_queues
+        # self.out_queue = out_queue
         self.max_batches = max_batches
-        self.n_generators = len(multicast_queues)
+        self.n_generators = len(proxy_comm_drivers)
         self.watcher_id = self.worker_id - WATCHER_OFFSET
 
     def debug(self, message):
@@ -52,7 +52,7 @@ class BaseWatcher(Worker):
                                                                          self.batch_count) + message)
 
     def run(self, **kwargs):
-        signal.signal(signal.SIGINT, signal.SIG_IGN)
+        # signal.signal(signal.SIGINT, signal.SIG_IGN)
         self.watch()
 
     def watch(self):
@@ -65,24 +65,25 @@ class BaseWatcher(Worker):
         while not self.should_stop() and (self.max_batches is None or self.batch_count < self.max_batches):
             # while not self.should_stop() or (
             #                 self.max_batches is not None and self.batch_count < self.max_batches):
-            try:
-                read_batch = self.out_queue.get(timeout=1)
-                if read_batch is not None:
-                    self.debug("out_queue_get_wait_time={0}".format(time.time()
-                                                                    - out_queue_get_wait_time))
-                    start_time = time.time()
-                    try:
-                        for generator_queue in self.multicast_queues:
-                            generator_queue.put(read_batch)
+            # try:
+            read_batch = self.comm_driver.read('out', block=False)
+            if read_batch is not None:
+                self.debug("out_queue_get_wait_time={0}".format(time.time()
+                                                                - out_queue_get_wait_time))
+                start_time = time.time()
+                # try:
+                for proxy_comm_driver in self.proxy_comm_drivers:
+                    # generator_queue.put(read_batch)
+                    proxy_comm_driver.write('out', read_batch)
 
-                    except ValueError:
-                        pass
-                    self.debug("multicast_put_wait_time={0} ".format(time.time() - start_time))
-                    self.batch_count += 1
-                    out_queue_get_wait_time = time.time()
+                # except ValueError:
+                #     pass
+                self.debug("multicast_put_wait_time={0} ".format(time.time() - start_time))
+                self.batch_count += 1
+                out_queue_get_wait_time = time.time()
 
-            except Queue.Empty:
-                pass
+            # except Queue.Empty:
+            #     pass
 
             start_time = time.time()
             for reader_index, reader_slot in enumerate(self.shared_memory_pointer):

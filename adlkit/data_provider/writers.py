@@ -17,25 +17,22 @@ AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE, either express
 or implied.  See the License for the specific language governing permissions and limitations under the License.
 """
+import signal
 
-import setuptools
+from adlkit.data_provider import Worker
+from adlkit.data_provider.io_drivers import DataIODriver
 
-from adlkit import __version__
 
-setuptools.setup(
-        name="adlkit",
-        version=__version__,
-        author="Amir Farbin, William Hilliard, Ryan Reece",
-        author_email="wghilliard@anomalousdl.com",
-        url="https://github.com/anomalousdl/adlkit",
-        install_requires=[
-            "keras==2.0.8",
-            "numpy",
-            "h5py",
-            "theano",
-            "billiard",
-            "np_utils",
-            "tensorflow"
-        ],
-        packages=setuptools.find_packages()
-)
+class BaseWriter(Worker):
+
+    def __init__(self, io_driver, worker_id, comm_driver, sleep_duration=1, **kwargs):
+        super(BaseWriter, self).__init__(worker_id, comm_driver, sleep_duration, **kwargs)
+
+        assert isinstance(io_driver, DataIODriver)
+
+    def run(self, **kwargs):
+        # signal.signal(signal.SIGINT, signal.SIG_IGN)
+        self.write()
+
+    def write(self):
+        pass

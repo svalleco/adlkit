@@ -18,7 +18,6 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSI
 or implied.  See the License for the specific language governing permissions and limitations under the License.
 """
 
-import Queue
 import collections
 import logging as lg
 import signal
@@ -28,6 +27,7 @@ import keras
 import numpy as np
 from six import raise_from
 
+from adlkit.data_provider.comm_drivers import BaseCommDriver
 from .config import READER_OFFSET
 from .io_drivers import DataIODriver
 from .workers import Worker
@@ -45,27 +45,28 @@ class BaseReader(Worker):
     """
     io_driver = None
 
-    def __init__(self, worker_id, in_queue, out_queue, shared_memory_pointer, read_size, io_driver,
+    def __init__(self, worker_id, comm_driver, shared_memory_pointer, read_size, io_driver,
                  max_batches=None, **kwargs):
         """
         :param worker_index:
-        :param in_queue:
-        :param out_queue:
+        :param in_queue_str:
+        :param out_queue_str:
         :param shared_memory_pointer:
         """
 
         # TODO not sure if this is the correct syntax
         # https://github.com/numpy/numpy/blob/master/numpy/core/memmap.py
+        assert isinstance(comm_driver, BaseCommDriver)
+        assert isinstance(io_driver, DataIODriver)
         super(BaseReader, self).__init__(worker_id=worker_id + READER_OFFSET,
+                                         comm_driver=comm_driver,
                                          **kwargs)
-        self.in_queue = in_queue
-        self.out_queue = out_queue
+
         self.shared_memory_pointer = shared_memory_pointer
         self.max_batches = max_batches
         self.read_size = read_size
         self.reader_id = self.worker_id - READER_OFFSET
 
-        assert isinstance(io_driver, DataIODriver)
         self.io_driver = io_driver
 
     def debug(self, message):
@@ -97,17 +98,18 @@ class BaseReader(Worker):
                                                                          self.batch_count) + message)
 
     def run(self, **kwargs):
-        signal.signal(signal.SIGINT, signal.SIG_IGN)
+        # signal.signal(signal.SIGINT, signal.SIG_IGN)
         self.read()
 
     def read(self):
-        self.info("starting...")
+        self.debug("starting...")
         with self.io_driver:
 
             in_queue_time = time.time()
 
             while not self.should_stop() and (self.max_batches is None or self.batch_count < self.max_batches):
-                batch = self.get_batch()
+                # batch = self.get_batch()
+                batch = self.comm_driver.read('in', block=False)
                 if batch is not None:
                     # self.info("in_queue_get_wait_time={0} in_queue_size={1}".format(time.time() - in_queue_time,
                     # self.in_queue.qsize()))
@@ -127,13 +129,14 @@ class BaseReader(Worker):
                     self.debug("starting out_queue.put")
                     wait_time = time.time()
                     while not self.should_stop():
-                        try:
-                            self.out_queue.put(data_pointer, timeout=0)
-                            self.debug("successfully put data in out_queue")
-                            break
-                        except Queue.Full:
-                            # self.debug("out_queue is full, sleeping")
+                        # self.out_queue.put(data_pointer, timeout=0)
+                        success = self.comm_driver.write('out', data_pointer, block=False)
+                        if not success:
+                            self.debug("comm_driver['out'] is full, sleeping")
                             self.sleep()
+                        else:
+                            self.debug("successfully wrote data to comm_driver['out']")
+                            break
 
                     self.debug("batch_read_time={0} out_queue_put_wait_time={1}".format(time.time() - start_time,
                                                                                         time.time() - wait_time))
@@ -148,12 +151,6 @@ class BaseReader(Worker):
 
         self.debug("exiting...")
         self.seppuku()
-
-    def get_batch(self):
-        try:
-            return self.in_queue.get(timeout=1)
-        except Queue.Empty:
-            return None
 
     def process_batch(self, batch, **kwargs):
         return batch
@@ -180,8 +177,7 @@ class BaseReader(Worker):
 
 
 class FileReader(BaseReader):
-    def __init__(self, worker_id, in_queue, out_queue, shared_memory_pointer,
-                 read_size, class_index_map, file_index_list,
+    def __init__(self, worker_id, comm_driver, shared_memory_pointer, read_size, class_index_map, file_index_list,
                  max_batches=None,
                  process_function=None,
                  make_class_index=False,
@@ -190,8 +186,7 @@ class FileReader(BaseReader):
                  shuffle=True,
                  **kwargs):
         super(self.__class__, self).__init__(worker_id=worker_id,
-                                             in_queue=in_queue,
-                                             out_queue=out_queue,
+                                             comm_driver=comm_driver,
                                              shared_memory_pointer=shared_memory_pointer,
                                              read_size=read_size,
                                              **kwargs)

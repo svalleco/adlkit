@@ -18,7 +18,6 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSI
 or implied.  See the License for the specific language governing permissions and limitations under the License.
 """
 
-import Queue
 import ctypes
 import logging as lg
 import multiprocessing
@@ -26,15 +25,16 @@ import signal
 import time
 from abc import ABCMeta, abstractmethod
 
-import billiard
 import numpy as np
 
+from adlkit.data_provider.comm_drivers import QueueCommDriver
 from adlkit.data_provider.io_drivers import DataIODriver, H5DataIODriver
-from .config import ConfigurableObject, STOP_MESSAGE
+from .config import ConfigurableObject
 from .fillers import BaseFiller, FileFiller
 from .generators import BaseGenerator
 from .readers import BaseReader, FileReader
 from .watchers import BaseWatcher
+from .workers import EXIT, PRUNE
 
 data_provider_logger = lg.getLogger('data_provider.main.dataprovdr')
 
@@ -144,7 +144,7 @@ class FileDataProvider(AbstractDataProvider):
             'make_file_index'       : False,
 
             # Not implemented.
-            'catch_signals'         : False,
+            'catch_signals'         : True,
 
             # This is a race condition catch. Probably not a good idea to
             # disable but may make sense in edge-cases.
@@ -152,7 +152,8 @@ class FileDataProvider(AbstractDataProvider):
 
             # The amount of time a worker should sleep if they are blocked by resource constraints.
             # This is used with os.sleep so either a float or an int should work.
-            'sleep_duration'        : 0.5,
+            # 'sleep_duration'        : 0.5,
+            'sleep_duration'        : 1,
 
             # If the rows should be shuffled on a per-batch basis.
             'shuffle'               : True,
@@ -171,7 +172,8 @@ class FileDataProvider(AbstractDataProvider):
 
             # If it is costly to open connections with your io_driver and you don't actually need the handle to work,
             # flipping this switch can improve performance.
-            'suppress_opens'        : False
+            'suppress_opens'        : False,
+
         }
 
         # TODO decompose defaults into super classes
@@ -186,17 +188,19 @@ class FileDataProvider(AbstractDataProvider):
 
         self.config.read_size = self.config.batch_size * self.config.read_multiplier
 
-        # self.catchsignals = catchsignals
+        signal.signal(signal.SIGTERM, self.hard_stop)
 
         self.filler_count = 0
         self.reader_count = 0
         self.generator_count = 0
 
-        self.in_queue = None
-        self.out_queue = None
-        self.malloc_queue = None
+        # self.in_queue = None
+        # self.out_queue = None
+        # self.malloc_queue = None
+        self.comm_driver = None
+        # self.multicast_queues = list()
 
-        self.multicast_queues = list()
+        self.proxy_comm_drivers = list()
 
         self.stop_check = False
         self.is_started = False
@@ -325,7 +329,8 @@ class FileDataProvider(AbstractDataProvider):
     def process_malloc_requests(self):
         malloc_wait_time = time.time()
 
-        malloc_requests = self.malloc_queue.get()
+        # malloc_requests = self.malloc_queue.get()
+        malloc_requests = self.comm_driver.read('malloc')
 
         # for index, request in self.malloc_requests:
         #     if request[0] == malloc_request[0]:
@@ -360,7 +365,7 @@ class FileDataProvider(AbstractDataProvider):
             for bucket in range(self.config.n_buckets):
                 data_sets = []
                 for request in (
-                            self.malloc_requests + self.extra_malloc_requests):
+                        self.malloc_requests + self.extra_malloc_requests):
                     # reshape the requested shape to match the read_size
                     shape = (self.config.read_size,) + request[1]
 
@@ -478,8 +483,9 @@ class FileDataProvider(AbstractDataProvider):
 
             assert shape_reader_io_driver is not None
             shape_reader = shape_reader_class(worker_id=0,
-                                              in_queue=None,
-                                              out_queue=None,
+                                              comm_driver=self.comm_driver,
+                                              # in_queue=None,
+                                              # out_queue=None,
                                               shared_memory_pointer=list(),
                                               max_batches=0,
                                               read_size=self.config.read_size,
@@ -497,10 +503,11 @@ class FileDataProvider(AbstractDataProvider):
                                        class_index_map=self.config.class_index_map,
                                        max_batches=self.config.max_batches,
                                        file_index_list=self.config.file_index_list,
-                                       in_queue=self.in_queue,
+                                       comm_driver=self.comm_driver,
+                                       # in_queue=self.in_queue,
                                        worker_id=filler_id,
                                        read_size=self.config.read_size,
-                                       malloc_queue=self.malloc_queue,
+                                       # malloc_queue=self.malloc_queue,
                                        data_sets=self.config.data_sets,
                                        shape_reader=shape_reader,
                                        wrap_examples=self.config.wrap_examples,
@@ -528,22 +535,24 @@ class FileDataProvider(AbstractDataProvider):
             # extending our arrays to track the readers
             self._extend_array(self.readers, reader_id)
 
-            self.readers[reader_id] = reader_class(in_queue=self.in_queue,
-                                                   out_queue=self.out_queue,
-                                                   shared_memory_pointer=self.shared_memory[reader_id],
-                                                   max_batches=self.config.max_batches,
-                                                   worker_id=reader_id,
-                                                   read_size=self.config.read_size,
-                                                   class_index_map=self.config.class_index_map,
-                                                   file_index_list=self.config.file_index_list,
-                                                   make_one_hot=self.config.make_one_hot,
-                                                   make_class_index=self.config.make_class_index,
-                                                   make_file_index=self.config.make_file_index,
-                                                   process_function=self.config.process_function,
-                                                   sleep_duration=self.config.sleep_duration,
-                                                   shuffle=self.config.shuffle,
-                                                   io_driver=io_driver,
-                                                   **kwargs)
+            self.readers[reader_id] = reader_class(
+                    # in_queue=self.in_queue,
+                    # out_queue=self.out_queue,
+                    comm_driver=self.comm_driver,
+                    shared_memory_pointer=self.shared_memory[reader_id],
+                    max_batches=self.config.max_batches,
+                    worker_id=reader_id,
+                    read_size=self.config.read_size,
+                    class_index_map=self.config.class_index_map,
+                    file_index_list=self.config.file_index_list,
+                    make_one_hot=self.config.make_one_hot,
+                    make_class_index=self.config.make_class_index,
+                    make_file_index=self.config.make_file_index,
+                    process_function=self.config.process_function,
+                    sleep_duration=self.config.sleep_duration,
+                    shuffle=self.config.shuffle,
+                    io_driver=io_driver,
+                    **kwargs)
 
             self.readers[reader_id].daemon = True
             self.readers[reader_id].start()
@@ -560,14 +569,16 @@ class FileDataProvider(AbstractDataProvider):
             self._extend_array(self.generators, generator_id)
 
             if self.watcher is None:
-                out_queue = self.out_queue
+                comm_driver = self.comm_driver
                 watched = False
             else:
-                out_queue = self.multicast_queues[generator_id]
+                # out_queue = self.multicast_queues[generator_id]
+                comm_driver = self.proxy_comm_drivers[generator_id]
                 watched = True
 
             self.generators[generator_id] = generator_class(
-                    out_queue=out_queue,
+                    comm_driver=comm_driver,
+                    # out_queue=out_queue,
                     batch_size=self.config.batch_size,
                     max_batches=self.config.max_batches,
                     shared_memory_pointer=self.shared_memory,
@@ -588,8 +599,10 @@ class FileDataProvider(AbstractDataProvider):
             watcher_id = 0
             self.watcher = watcher_class(worker_id=watcher_id,
                                          shared_memory_pointer=self.shared_memory,
-                                         out_queue=self.out_queue,
-                                         multicast_queues=self.multicast_queues,
+                                         comm_driver=self.comm_driver,
+                                         proxy_comm_drivers=self.proxy_comm_drivers,
+                                         # out_queue=self.out_queue,
+                                         # multicast_queues=self.multicast_queues,
                                          sleep_duration=self.config.sleep_duration,
                                          **kwargs)
 
@@ -601,62 +614,71 @@ class FileDataProvider(AbstractDataProvider):
             return None
 
     def start_queues(self):
-        self.in_queue = billiard.Queue(
-                maxsize=self.config.q_multiplier * self.config.n_readers)
-        self.out_queue = billiard.Queue(
-                maxsize=self.config.q_multiplier * self.config.n_readers)
-        self.malloc_queue = billiard.Queue(
-                maxsize=self.config.q_multiplier * self.config.n_readers)
+        # self.in_queue = billiard.Queue(
+        #         maxsize=self.config.q_multiplier * self.config.n_readers)
+        # self.out_queue = billiard.Queue(
+        #         maxsize=self.config.q_multiplier * self.config.n_readers)
+        # self.malloc_queue = billiard.Queue(
+        #         maxsize=self.config.q_multiplier * self.config.n_readers)
+        self.comm_driver = QueueCommDriver({
+            'ctl'   : self.config.q_multiplier * self.config.n_readers,
+            'in'    : self.config.q_multiplier * self.config.n_readers,
+            'malloc': self.config.q_multiplier * self.config.n_readers,
+            'out'   : self.config.q_multiplier * self.config.n_readers
+        })
 
         for _ in range(self.config.n_generators):
-            self.multicast_queues.append(
-                    billiard.Queue(maxsize=self.config.q_multiplier * self.config.n_readers))
+            # self.multicast_queues.append(billiard.Queue(maxsize=self.config.q_multiplier * self.config.n_readers))
+            self.proxy_comm_drivers.append(QueueCommDriver({'out': self.config.q_multiplier * self.config.n_readers,
+                                                            'ctl': self.comm_driver.comm_handles['ctl']}))
             # multiprocessing.Queue(maxsize=self.config.q_multiplier * self.config.n_readers))
 
     def stop_queues(self):
-        try:
-            self.in_queue.close()
-            self.in_queue = None
-        except Exception as e:
-            data_provider_logger.error(e)
-
-        try:
-            self.out_queue.close()
-            self.out_queue = None
-        except Exception as e:
-            data_provider_logger.error(e)
-
-        try:
-            self.malloc_queue.close()
-            self.malloc_queue = None
-        except Exception as e:
-            data_provider_logger.error(e)
-
-        for queue_index in range(len(self.multicast_queues)):
+        # try:
+        #     self.in_queue.close()
+        #     self.in_queue = None
+        # except Exception as e:
+        #     data_provider_logger.error(e)
+        #
+        # try:
+        #     self.out_queue.close()
+        #     self.out_queue = None
+        # except Exception as e:
+        #     data_provider_logger.error(e)
+        #
+        # try:
+        #     self.malloc_queue.close()
+        #     self.malloc_queue = None
+        # except Exception as e:
+        #     data_provider_logger.error(e)
+        self.comm_driver.stop()
+        self.comm_driver = None
+        # for queueindex in range(len(self.multicast_queues)):
+        for comm_driver in self.proxy_comm_drivers:
             try:
-                self.multicast_queues[queue_index].close()
+                # self.multicast_queues[queue_index].close()
+                comm_driver.stop()
             except Exception as e:
                 data_provider_logger.error(e)
 
-        self.multicast_queues = list()
+        # self.multicast_queues = list()
+        self.proxy_comm_drivers = list()
 
     def hard_stop(self):
-        try:
-            self.stop_filler()
-        except Exception as e:
-            print(e)
+        # try:
+        #     self.stop_filler()
+        # except Exception as e:
+        #     print(e)
+        # for _ in range(len(self.readers)):
+        self.comm_driver.write('ctl', EXIT)
+        # for reader_index in range(len(self.readers)):
+        #     try:
+        #         self.stop_reader(reader_index)
+        #     except Exception as e:
+        #         data_provider_logger.debug(e)
 
-        for reader_index in range(len(self.readers)):
-            try:
-                self.stop_reader(reader_index)
-            except Exception as e:
-                data_provider_logger.debug(e)
-
-        if self.watcher is not None:
-            self.stop_watcher()
-
-        self.drain_queues()
-        self.stop_queues()
+        # if self.watcher is not None:
+        #     self.stop_watcher()
 
         try:
             self.filler.join()
@@ -675,54 +697,62 @@ class FileDataProvider(AbstractDataProvider):
             except Exception as e:
                 data_provider_logger.debug(e)
 
+        self.drain_queues()
+        self.stop_queues()
+
         # attempting to free memory, according to the internet, this may or may not actually work.
         # del self.shared_memory
         # gc.collect()
         self.is_started = False
 
-    def stop_watcher(self):
-        self.watcher.send_command(STOP_MESSAGE)
-
     def drain_queues(self):
-        while True:
-            try:
-                self.in_queue.get(timeout=1)
-            except Queue.Empty:
-                break
+        # while True:
+        #     try:
+        #         self.in_queue.get(block=False)
+        #     except Queue.Empty:
+        #         break
+        #
+        # while True:
+        #     try:
+        #         self.out_queue.get(timeout=1)
+        #     except Queue.Empty:
+        #         break
+        #
+        # while True:
+        #     try:
+        #         self.malloc_queue.get(timeout=1)
+        #     except Queue.Empty:
+        #         break
+        self.comm_driver.drain()
 
-        while True:
-            try:
-                self.out_queue.get(timeout=1)
-            except Queue.Empty:
-                break
+        for comm_driver in self.proxy_comm_drivers:
+            comm_driver.drain()
+        # for queue_index in range(len(self.multicast_queues)):
+        #     while True:
+        #         try:
+        #             self.multicast_queues[queue_index].get(timeout=1)
+        #         except Queue.Empty:
+        #             break
+        #         break
 
-        while True:
-            try:
-                self.malloc_queue.get(timeout=1)
-            except Queue.Empty:
-                break
+    # def stop_filler(self):
+    #     """
+    #
+    #     if stop fails, kill by pid / handle at end of timeout ?
+    #     :return:
+    #     """
+    # self.filler.send_command(STOP_MESSAGE)
+    # self.comm_driver.write(EXIT)
 
-        for queue_index in range(len(self.multicast_queues)):
-            while True:
-                try:
-                    self.multicast_queues[queue_index].get(timeout=1)
-                except Queue.Empty:
-                    break
-                break
+    def stop_reader(self):
+        # try:
+        #     self.readers[reader_id].send_command(STOP_MESSAGE)
+        # except IndexError:
+        #     pass
+        self.comm_driver.write('ctl', PRUNE)
 
-    def stop_filler(self):
-        """
-
-        if stop fails, kill by pid / handle at end of timeout ?
-        :return:
-        """
-        self.filler.send_command(STOP_MESSAGE)
-
-    def stop_reader(self, reader_id):
-        try:
-            self.readers[reader_id].send_command(STOP_MESSAGE)
-        except IndexError:
-            pass
+    # def stop_watcher(self):
+    #     self.watcher.send_command(STOP_MESSAGE)
 
     def first(self):
         if isinstance(self.generators[0], BaseGenerator):

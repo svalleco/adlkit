@@ -17,8 +17,6 @@ AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE, either express
 or implied.  See the License for the specific language governing permissions and limitations under the License.
 """
-
-import Queue
 import copy
 import logging as lg
 import signal
@@ -38,13 +36,13 @@ filler_logger = lg.getLogger('data_provider.workers.fillers')
 class BaseFiller(Worker):
     io_driver = None
 
-    def __init__(self, in_queue, malloc_queue, worker_id, io_driver,
+    def __init__(self,
+                 comm_driver,
+                 io_driver,
+                 worker_id,
                  read_batches_per_epoch=None,
                  max_batches=None, **kwargs):
-        super(BaseFiller, self).__init__(worker_id + FILLER_OFFSET, **kwargs)
-
-        self.in_queue = in_queue
-        self.malloc_queue = malloc_queue
+        super(BaseFiller, self).__init__(worker_id + FILLER_OFFSET, comm_driver, **kwargs)
 
         self.max_batches = max_batches
         self.read_batches_per_epoch = read_batches_per_epoch
@@ -73,7 +71,6 @@ class BaseFiller(Worker):
         return
 
     def run(self, **kwargs):
-        signal.signal(signal.SIGINT, signal.SIG_IGN)
         self.fill()
 
     def fill(self):
@@ -99,15 +96,15 @@ class BaseFiller(Worker):
                 # put cannot be trusted, must poll manually
 
                 in_queue_put_wait_time = time.time()
-                self.debug("start in_queue.put")
+                self.debug("start comm_driver.in.put")
                 while not self.should_stop():
-                    try:
-                        self.in_queue.put(batch, block=False)
-                        self.debug("successfully put data in in_queue")
-                        break
-                    except Queue.Full:
-                        self.debug("in_queue is full, sleeping")
+                    success = self.comm_driver.write('in', batch, block=False)
+                    if not success:
+                        self.debug("comm_driver['in'] is full, sleeping")
                         self.sleep()
+                    else:
+                        self.debug("successfully wrote data to comm_driver['in']")
+                        break
 
                 self.debug(
                         "batch_fill_time={0} in_queue_put_wait_time={1}".format(time.time() - start_time,
@@ -124,8 +121,10 @@ class FileFiller(BaseFiller):
     """
 
     # TODO data_sets required
-    def __init__(self, classes, class_index_map, in_queue, malloc_queue, worker_id, read_size,
-                 data_sets, file_index_list,
+    def __init__(self, classes, class_index_map, comm_driver, worker_id,
+                 read_size,
+                 data_sets,
+                 file_index_list,
                  read_batches_per_epoch=None,
                  max_batches=None,
                  filter_function=None,
@@ -135,10 +134,9 @@ class FileFiller(BaseFiller):
                  suppress_opens=False,
                  **kwargs):
 
-        super(FileFiller, self).__init__(in_queue=in_queue,
-                                         worker_id=worker_id,
+        super(FileFiller, self).__init__(worker_id=worker_id,
                                          max_batches=max_batches,
-                                         malloc_queue=malloc_queue,
+                                         comm_driver=comm_driver,
                                          read_batches_per_epoch=read_batches_per_epoch,
                                          **kwargs)
         self.skip = skip
@@ -188,12 +186,16 @@ class FileFiller(BaseFiller):
                 name = 'inferred_{}'.format(item_index)
                 malloc_requests.append((name, shape))
 
-        while True:
-            try:
-                self.malloc_queue.put(malloc_requests)
-                break
-            except Queue.Full:
-                pass
+        # while True:
+        #     try:
+        #         # self.malloc_queue.put(malloc_requests)
+        #         # self.malloc_queue_socket.send(pickle.dumps(malloc_requests), flags=zmq.NOBLOCK)
+        #         break
+        #     # except Queue.Full:
+        #     except zmq.ZMQError:
+        #         pass
+        self.comm_driver.write('malloc', malloc_requests)
+
         self.debug("informing data provider of malloc shapes `{0}`".format(malloc_requests))
         self.report = False
 
