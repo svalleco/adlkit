@@ -18,14 +18,17 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSI
 or implied.  See the License for the specific language governing permissions and limitations under the License.
 """
 
+import ctypes
 import logging as lg
-import multiprocessing
+import multiprocessing as mp
+import os
+# from .config import STOP_MESSAGE
+import signal
 import time
 
 import billiard
 import numpy as np
-
-# from .config import STOP_MESSAGE
+from future.utils import raise_with_traceback
 
 worker_log = lg.getLogger('data_provider.workers.worker')
 
@@ -33,6 +36,32 @@ HELLO = b'hello'
 OH_HAI = b'oh_hai'
 EXIT = b'exit_pls'
 PRUNE = b'kthxbai'
+ERROR = b'ono'
+
+
+def error_handler(self):
+    def error_handler_wrapper(func):
+        def new_method(*args, **kwargs):
+            # print(os.getppid(), billiard.current_process().pid)
+
+            try:
+                output = func(self, *args, **kwargs)
+            except Exception as e:
+                self.stop_check = True
+                self.comm_driver.write('ctl', ERROR)
+                with self.error.get_lock():
+                    self.error.value = str(e)
+                if os.getppid() != billiard.current_process().pid:
+                    # os.kill(os.getppid(), signal.SIGUSR2)
+                    os.kill(os.getppid(), signal.SIGUSR1)
+
+                raise_with_traceback(e)
+
+            return output
+
+        return new_method
+
+    return error_handler_wrapper
 
 
 class WorkerError(Exception):
@@ -51,7 +80,11 @@ class WorkerError(Exception):
 #         except WorkerError:
 
 class Worker(billiard.Process):
+    send_signals = False
     comm_driver = None
+
+    max_batches = None
+    batch_count = None
 
     def __init__(self, worker_id,
                  # controller_socket_str,
@@ -77,7 +110,9 @@ class Worker(billiard.Process):
         # self.control_queue = multiprocessing.Queue(maxsize=controller_queue_depth)
         self.worker_id = worker_id
 
-        self.stop = multiprocessing.Value('i', 0)
+        self.stop = mp.Value('i', 0)
+        self.error = mp.Value(ctypes.c_char_p)
+
         self.stop_check = False
 
         self.batch_count = 0
@@ -85,6 +120,8 @@ class Worker(billiard.Process):
         self.sleep_duration = sleep_duration
 
         self.synced = False
+
+        self.run = error_handler(self)(type(self).run)
 
     def run(self, **kwargs):
         return
@@ -117,9 +154,9 @@ class Worker(billiard.Process):
             msg = self.comm_driver.read('ctl', block=False)
             if msg is None:
                 pass
-            elif msg == EXIT:
+            elif msg in [ERROR, EXIT]:
                 # self.hard_stop.set()
-                print('{} SHOULD STOP'.format(self.worker_id))
+                # print('{} SHOULD STOP'.format(self.worker_id))
                 self.stop_check = True
                 # TODO - wghilliard - this is super hacky
                 # self.comm_driver.write('ctl', EXIT, block=False)
@@ -132,14 +169,17 @@ class Worker(billiard.Process):
 
     def should_stop(self):
         self.get_all_commands()
+        if self.max_batches is not None:
+            self.stop_check = self.stop_check or (self.batch_count >= self.max_batches)
+
         return self.stop_check
 
     def seppuku(self):
-        for file_handle in self.file_handle_holder:
-            try:
-                self.file_handle_holder[file_handle].close()
-            except Exception as e:
-                lg.debug(e)
+        # for file_handle in self.file_handle_holder:
+        #     try:
+        #         self.file_handle_holder[file_handle].close()
+        #     except Exception as e:
+        #         lg.debug(e)
 
         with self.stop.get_lock():
             self.stop.value = 1
@@ -154,3 +194,5 @@ class Worker(billiard.Process):
     def sleep(self):
         if self.sleep_duration is not None:
             time.sleep(self.sleep_duration)
+        if os.getppid() == 1:
+            self.stop_check = True

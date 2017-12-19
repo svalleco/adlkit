@@ -90,8 +90,9 @@ class QueueCommDriver(BaseCommDriver):
             except (Exception, KeyError) as e:
                 raise_with_traceback(e)
 
-    def drain(self):
-        for key, value in self.comm_handles.items():
+    def drain(self, keys=None):
+        keys = keys or self.comm_handles.keys()
+        for key in keys:
             check = True
             while check is not None:
                 check = self.read(key, block=False)

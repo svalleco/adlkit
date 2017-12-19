@@ -39,6 +39,7 @@ class CatalogObject(object):
             setattr(self, key, value)
 
 
+# TODO - wghilliard - rename to DataPointer
 class DataPoint(CatalogObject):
     source_name = None
     source_type = None
@@ -56,6 +57,8 @@ class Label(CatalogObject):
     name = None
     comment = None
     is_origin = None
+    # TODO - wghilliard - LabelMeta
+    # username = None
 
 
 class AbstractDataCatalog(object):

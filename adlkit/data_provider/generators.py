@@ -53,7 +53,7 @@ class BaseGenerator(Worker):
         self.watched = watched
         self.translate_col_to_file_name = translate_col_to_file_name
         self.generator_id = self.worker_id - GENERATOR_OFFSET
-        self.last_reader_index = None
+        # self.last_reader_index = None
         self.last_bucket_index = None
 
     def debug(self, message):
@@ -68,27 +68,28 @@ class BaseGenerator(Worker):
 
     def generate(self):
         self.batch_count = 0
-        while not self.should_stop() or (
-                self.max_batches is not None and self.batch_count >= self.max_batches):
-        # while True or self.max_batches is not None and self.batch_count >= self.max_batches:
-        #     Cleaning up
-            if self.last_reader_index is not None and self.last_bucket_index is not None:
+        while not self.should_stop():
+                # or (
+                # self.max_batches is not None and self.batch_count >= self.max_batches):
+
+            # while True or self.max_batches is not None and self.batch_count >= self.max_batches:
+            #     Cleaning up
+            if self.last_bucket_index is not None:
                 self.debug("attempting to get lock to release buckets")
                 if self.watched:
-                    with self.shared_memory_pointer[self.last_reader_index][self.last_bucket_index][3].get_lock():
+                    with self.shared_memory_pointer[self.last_bucket_index][3].get_lock():
                         # self.debug("setting bucket3 to {}".format(
                         #         self.shared_memory_pointer[self.last_reader_index][self.last_bucket_index][
                         #             3].value + 1))
-                        self.shared_memory_pointer[self.last_reader_index][self.last_bucket_index][3].value += 1
+                        self.shared_memory_pointer[self.last_bucket_index][3].value += 1
                 else:
-                    with self.shared_memory_pointer[self.last_reader_index][self.last_bucket_index][0].get_lock():
-                        self.shared_memory_pointer[self.last_reader_index][self.last_bucket_index][0].value = 0
+                    with self.shared_memory_pointer[self.last_bucket_index][0].get_lock():
+                        self.shared_memory_pointer[self.last_bucket_index][0].value = 0
 
                 self.debug(
-                        "successfully got lock and released buckets last_reader_index={0} "
-                        "last_bucket_index={1}".format(self.last_reader_index, self.last_bucket_index))
+                        "successfully got lock and released buckets last_bucket_index={0}".format(
+                                self.last_bucket_index))
 
-                self.last_reader_index = None
                 self.last_bucket_index = None
 
             # read_batch = None
@@ -108,21 +109,22 @@ class BaseGenerator(Worker):
                 # time.time() - start_time, self.out_queue.qsize()))
                 self.debug("successfully got a read_batch from the out_queue")
                 try:
-                    reader_id, bucket_index, data_sets, batch_id = read_batch
+                    # reader_id, bucket_index, data_sets, batch_id = read_batch
+                    bucket_index, data_sets, batch_id = read_batch
                 except ValueError:
                     yield None
 
                 if self.watched:
-                    with self.shared_memory_pointer[reader_id][bucket_index][2].get_lock():
-                        self.debug("writing ahead reader_id={} bucket_index={}".format(reader_id, bucket_index))
+                    with self.shared_memory_pointer[bucket_index][2].get_lock():
+                        self.debug("writing ahead bucket_index={}".format(bucket_index))
                         # self.debug("setting bucket2 to {}".format(
                         #         self.shared_memory_pointer[reader_id][bucket_index][2].value + 1))
-                        self.shared_memory_pointer[reader_id][bucket_index][2].value += 1
+                        self.shared_memory_pointer[bucket_index][2].value += 1
 
-                payload = self.shared_memory_pointer[reader_id][bucket_index][1]
+                payload = self.shared_memory_pointer[bucket_index][1]
 
                 self.last_bucket_index = bucket_index
-                self.last_reader_index = reader_id
+                # self.last_reader_index = reader_id
 
                 for batch_index in range(0, len(payload[0]), self.batch_size):
                     batch = range(len(payload))
@@ -131,10 +133,7 @@ class BaseGenerator(Worker):
 
                     # generators get caught in this loop so redundant checks are necessary
                     # using that De Morgans law yo
-                    if self.should_stop() or (
-                            self.max_batches is not None and self.batch_count == self.max_batches):
-                    # if not True or (
-                    #         self.max_batches is not None and self.batch_count == self.max_batches):
+                    if self.should_stop() or (self.max_batches is not None and self.batch_count == self.max_batches):
                         raise StopIteration
 
                     self.debug("attempting to deliver a batch")

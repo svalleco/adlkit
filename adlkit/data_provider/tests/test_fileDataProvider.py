@@ -24,16 +24,18 @@ import copy
 import datetime
 import logging as lg
 import os
+import time
 from unittest import TestCase
 
 import numpy as np
 
-from adlkit.data_provider.data_providers import FileDataProvider
+from adlkit.data_provider.data_providers import FileDataProvider, WatchedH5FileDataProvider
 from adlkit.data_provider.fillers import FileFiller
 from adlkit.data_provider.generators import BaseGenerator
 from adlkit.data_provider.io_drivers import H5DataIODriver
 from adlkit.data_provider.readers import FileReader
 from adlkit.data_provider.watchers import BaseWatcher
+from adlkit.data_provider.writers import BaseWriter
 
 lg.basicConfig(level=lg.DEBUG, format='%(asctime)s %(levelname)s %(name)s %(message)s ')
 test_logger = lg.getLogger('data_provider.tests')
@@ -95,24 +97,23 @@ class TestFileDataProvider(TestCase):
 
         worker_id = 0
 
-        tmp_data_provider.make_shared_malloc(worker_id)
+        tmp_data_provider.make_shared_malloc()
 
         bucket = 1
         data_set = 0
         lock = 0
 
-        self.assertEqual(len(tmp_data_provider.shared_memory), 1,
-                         "shared memory was not extended correctly ")
+        # self.assertEqual(len(tmp_data_provider.shared_memory), 1,
+        #                  "shared memory was not extended correctly ")
 
         # check to make sure all buckets were allocated
-        self.assertEqual(len(tmp_data_provider.shared_memory[worker_id]), 10,
+        self.assertEqual(len(tmp_data_provider.shared_memory), 10,
                          "shared memory buckets were not allocated correctly")
 
         # check to make sure the shape matches out expected value
 
         self.assertEqual(
-                tmp_data_provider.shared_memory[worker_id][bucket][lock + 1][
-                    data_set].shape, (100, 5),
+                tmp_data_provider.shared_memory[bucket][lock + 1][data_set].shape, (100, 5),
                 "shared memory shape doesn't match")
 
     def test_filler_to_malloc(self):
@@ -138,7 +139,7 @@ class TestFileDataProvider(TestCase):
 
         tmp_data_provider.worker_count = worker_id = 1
 
-        tmp_data_provider.make_shared_malloc(worker_id)
+        tmp_data_provider.make_shared_malloc()
 
         bucket = 0
         data_set = 0
@@ -146,30 +147,31 @@ class TestFileDataProvider(TestCase):
         # TODO !!possible off by one error, needs logic check!!
 
         # check to make sure the shared mem was extended
-        self.assertEqual(len(tmp_data_provider.shared_memory),
-                         tmp_data_provider.worker_count + 1,
-                         "shared memory was not extended correctly ")
+        # self.assertEqual(len(tmp_data_provider.shared_memory),
+        #                  tmp_data_provider.worker_count + 1,
+        #                  "shared memory was not extended correctly ")
 
         # check to make sure all buckets were allocated
-        self.assertEqual(len(tmp_data_provider.shared_memory[worker_id]), 10,
+        self.assertEqual(len(tmp_data_provider.shared_memory), 10,
                          "shared memory buckets were not allocated correctly")
 
         # Multiple Generator start and end locks
         self.assertEqual(
-                len(tmp_data_provider.shared_memory[worker_id][bucket]), 4,
+                len(tmp_data_provider.shared_memory[bucket]), 4,
                 "shared memory locks were not set correctly")
 
         # check to make sure all data sets were allocated
         self.assertEqual(
-                len(tmp_data_provider.shared_memory[worker_id][bucket][lock + 1]),
+                len(tmp_data_provider.shared_memory[bucket][lock + 1]),
                 len(mock_expected_malloc_requests),
                 "shared memory data sets were not allocated correctly")
 
         # check to make sure the shape matches out expected value
         self.assertEqual(
-                tmp_data_provider.shared_memory[worker_id][bucket][lock + 1][
+                tmp_data_provider.shared_memory[bucket][lock + 1][
                     data_set].shape, (100, 5),
                 "shared memory shape doesn't match")
+        tmp_data_provider.hard_stop()
 
     def test_start_filler(self):
         from adlkit.data_provider.tests.mock_config import mock_sample_specification
@@ -207,6 +209,7 @@ class TestFileDataProvider(TestCase):
         self.assertEquals(len(out), max_batches,
                           "test consumed {0} of {1} expected batches from the in_queue".format(
                                   len(out), max_batches))
+        tmp_data_provider.hard_stop()
 
     def test_start_reader(self):
         from adlkit.data_provider.tests.mock_config import mock_sample_specification, \
@@ -239,7 +242,7 @@ class TestFileDataProvider(TestCase):
 
         out = list()
         start_time = datetime.datetime.utcnow()
-        end_time = datetime.timedelta(seconds=10) + start_time
+        end_time = datetime.timedelta(seconds=100) + start_time
         while datetime.datetime.utcnow() < end_time and len(out) != max_batches:
             # try:
             batch = tmp_data_provider.comm_driver.read('out', block=False)
@@ -250,10 +253,10 @@ class TestFileDataProvider(TestCase):
                 out.append(batch)
 
         for item in out:
-            tmp_worker_id, tmp_bucket_index, tmp_data_sets, batch_id = item
+            # tmp_worker_id, tmp_bucket_index, tmp_data_sets, batch_id = item
+            tmp_bucket_index, tmp_data_sets, batch_id = item
             # Check that each bucket was successfully updated
-            self.assertEqual(tmp_data_provider.shared_memory[tmp_worker_id][
-                                 tmp_bucket_index][0].value, 1)
+            self.assertEqual(tmp_data_provider.shared_memory[tmp_bucket_index][0].value, 1)
 
         # check for correct reader_id assignment
         self.assertEqual(len(tmp_data_provider.readers), reader_id + 1)
@@ -309,10 +312,10 @@ class TestFileDataProvider(TestCase):
                 out.append(batch)
 
         for item in out:
-            tmp_worker_id, tmp_bucket_index, tmp_data_sets, batch_id = item
+            # tmp_worker_id, tmp_bucket_index, tmp_data_sets, batch_id = item
+            tmp_bucket_index, tmp_data_sets, batch_id = item
             # Check that each bucket was successfully updated
-            self.assertEqual(tmp_data_provider.shared_memory[tmp_worker_id][
-                                 tmp_bucket_index][0].value, 1)
+            self.assertEqual(tmp_data_provider.shared_memory[tmp_bucket_index][0].value, 1)
 
         # check for correct reader_id assignment
         self.assertEqual(len(tmp_data_provider.readers), reader_id + 1)
@@ -693,7 +696,7 @@ class TestFileDataProvider(TestCase):
 
         tmp_data_provider.start_queues()
         tmp_data_provider.malloc_requests = mock_expected_malloc_requests
-        tmp_data_provider.make_shared_malloc(0)
+        tmp_data_provider.make_shared_malloc()
 
         for batch in mock_read_batches:
             # try:
@@ -732,6 +735,55 @@ class TestFileDataProvider(TestCase):
             self.assertEqual(gen_count, max_batches)
 
         tmp_data_provider.hard_stop()
+
+    def test_writer(self):
+        from adlkit.data_provider.tests.mock_config import mock_sample_specification
+
+        mock_sample_specification = copy.deepcopy(mock_sample_specification)
+
+        batch_size = 100
+        max_batches = 5
+        n_generators = 5
+        n_readers = 5
+        n_buckets = 10
+        q_multiplier = 5
+
+        data_dst = '/{}/{}'.format(os.getcwd(), int(time.time()))
+        tmp_data_provider = WatchedH5FileDataProvider(mock_sample_specification,
+                                                      batch_size=batch_size,
+                                                      read_multipler=2,
+                                                      make_one_hot=True,
+                                                      make_class_index=True,
+                                                      n_readers=n_readers,
+                                                      n_generators=n_generators,
+                                                      q_multiplier=q_multiplier,
+                                                      n_buckets=n_buckets,
+                                                      sleep_duration=sleep_duration,
+                                                      max_batches=max_batches,
+                                                      writer_config=[{
+                                                          'data_dst' : data_dst,
+                                                          'io_driver': H5DataIODriver({'cache_handles': True}),
+                                                          # 'pre_write_function':''
+                                                      }])
+
+        success = tmp_data_provider.start(writer_class=BaseWriter)
+
+        self.assertTrue(success, msg='DataProvider was not started successfully.')
+
+        end_time = datetime.timedelta(seconds=10) + datetime.datetime.utcnow()
+
+        while datetime.datetime.utcnow() < end_time:
+            with tmp_data_provider.writers[0].stop.get_lock():
+                if tmp_data_provider.writers_have_stopped():
+                    break
+                else:
+                    time.sleep(1)
+
+        exists = os.path.exists(data_dst)
+        self.assertTrue(exists)
+
+        tmp_data_provider.hard_stop()
+        os.remove(data_dst)
     # def test_watcher_free(self):
     #     import logging as lg
     #

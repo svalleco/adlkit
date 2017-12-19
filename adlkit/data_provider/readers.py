@@ -20,7 +20,6 @@ or implied.  See the License for the specific language governing permissions and
 
 import collections
 import logging as lg
-import signal
 import time
 
 import keras
@@ -30,7 +29,7 @@ from six import raise_from
 from adlkit.data_provider.comm_drivers import BaseCommDriver
 from .config import READER_OFFSET
 from .io_drivers import DataIODriver
-from .workers import Worker
+from .workers import Worker, error_handler
 
 # lg.basicConfig(level=lg.INFO)
 
@@ -40,9 +39,6 @@ EXIT = object()
 
 
 class BaseReader(Worker):
-    """
-
-    """
     io_driver = None
 
     def __init__(self, worker_id, comm_driver, shared_memory_pointer, read_size, io_driver,
@@ -68,6 +64,8 @@ class BaseReader(Worker):
         self.reader_id = self.worker_id - READER_OFFSET
 
         self.io_driver = io_driver
+
+        # self.read = error_handler(self)(type(self).read)
 
     def debug(self, message):
         if isinstance(message, list):
@@ -107,7 +105,7 @@ class BaseReader(Worker):
 
             in_queue_time = time.time()
 
-            while not self.should_stop() and (self.max_batches is None or self.batch_count < self.max_batches):
+            while not self.should_stop():
                 # batch = self.get_batch()
                 batch = self.comm_driver.read('in', block=False)
                 if batch is not None:
@@ -376,7 +374,8 @@ class FileReader(BaseReader):
 
             self.debug("store_in_shared_time={0} batch_id={1}".format(time.time() - store_in_shared_time,
                                                                       batch_id))
-            return self.worker_id - READER_OFFSET, bucket_index, data_sets, batch_id
+            # return self.worker_id - READER_OFFSET, bucket_index, data_sets, batch_id
+            return bucket_index, data_sets, batch_id
         else:
             return payloads
 

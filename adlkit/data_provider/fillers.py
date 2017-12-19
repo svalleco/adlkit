@@ -19,7 +19,6 @@ or implied.  See the License for the specific language governing permissions and
 """
 import copy
 import logging as lg
-import signal
 import time
 
 from numpy import random
@@ -80,7 +79,7 @@ class BaseFiller(Worker):
 
         self.debug("starting...")
         with self.io_driver:
-            while not self.should_stop() and (self.max_batches is None or self.batch_count < self.max_batches):
+            while not self.should_stop():
 
                 if self.read_batches_per_epoch is not None and self.batch_count % self.read_batches_per_epoch == 0:
                     self.reset()
@@ -141,6 +140,13 @@ class FileFiller(BaseFiller):
                                          **kwargs)
         self.skip = skip
         self.read_size = read_size
+
+        # self.mode_index = 0
+        # self.modes = {
+        #     'train': 90,
+        #     'test' : 10,
+        #     'cache': '*'
+        # }
 
         if callable(filter_function):
             self.filter_function = dict()

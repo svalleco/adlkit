@@ -19,7 +19,6 @@ or implied.  See the License for the specific language governing permissions and
 """
 
 import logging as lg
-import signal
 import time
 
 from .config import WATCHER_OFFSET
@@ -62,7 +61,7 @@ class BaseWatcher(Worker):
 
         out_queue_get_wait_time = time.time()
         self.debug("watcher starting")
-        while not self.should_stop() and (self.max_batches is None or self.batch_count < self.max_batches):
+        while not self.should_stop():
             # while not self.should_stop() or (
             #                 self.max_batches is not None and self.batch_count < self.max_batches):
             # try:
@@ -86,22 +85,22 @@ class BaseWatcher(Worker):
             #     pass
 
             start_time = time.time()
-            for reader_index, reader_slot in enumerate(self.shared_memory_pointer):
-                for bucket_index, bucket in enumerate(reader_slot):
-                    with bucket[0].get_lock() and bucket[2].get_lock() and bucket[3].get_lock():
-                        self.debug('does {}={}={} (reader_id={}, bucket_index={})'.format(bucket[2].value,
-                                                                                          bucket[3].value,
-                                                                                          self.n_generators,
-                                                                                          reader_index,
-                                                                                          bucket_index))
-                        if bucket[2].value == bucket[3].value == self.n_generators:
-                            self.debug(
-                                    "resetting bucket reader_id={0} bucket_id={1}".format(reader_index,
-                                                                                          bucket_index))
-                            bucket[0].value = 0
-                            bucket[2].value = 0
-                            bucket[3].value = 0
+            # for reader_index, reader_slot in enumerate(self.shared_memory_pointer):
+            for bucket_index, bucket in enumerate(self.shared_memory_pointer):
+                with bucket[0].get_lock() and bucket[2].get_lock() and bucket[3].get_lock():
+                    self.debug('does {}={}={} (bucket_index={})'.format(bucket[2].value,
+                                                                        bucket[3].value,
+                                                                        self.n_generators,
+                                                                        # reader_index,
+                                                                        bucket_index))
+                    if bucket[2].value == bucket[3].value == self.n_generators:
+                        self.debug(
+                                "resetting bucket bucket_id={}".format(bucket_index))
+                        bucket[0].value = 0
+                        bucket[2].value = 0
+                        bucket[3].value = 0
             self.debug(" bucket_watch_time={0} ".format(time.time() - start_time))
 
-            # self.sleep()
+            self.debug(" batch_count={}/{}".format(self.batch_count, self.max_batches))
+            self.sleep()
             # time.sleep(self.sleep_duration)
