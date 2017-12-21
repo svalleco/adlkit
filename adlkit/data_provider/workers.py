@@ -22,7 +22,6 @@ import ctypes
 import logging as lg
 import multiprocessing as mp
 import os
-# from .config import STOP_MESSAGE
 import signal
 import time
 
@@ -42,8 +41,6 @@ ERROR = b'ono'
 def error_handler(self):
     def error_handler_wrapper(func):
         def new_method(*args, **kwargs):
-            # print(os.getppid(), billiard.current_process().pid)
-
             try:
                 output = func(self, *args, **kwargs)
             except Exception as e:
@@ -52,7 +49,6 @@ def error_handler(self):
                 with self.error.get_lock():
                     self.error.value = str(e)
                 if os.getppid() != billiard.current_process().pid:
-                    # os.kill(os.getppid(), signal.SIGUSR2)
                     os.kill(os.getppid(), signal.SIGUSR1)
 
                 raise_with_traceback(e)
@@ -73,12 +69,6 @@ class WorkerError(Exception):
         self.worker_id = worker_id
 
 
-# def report_error(run_function):
-#     def wrapper():
-#         try:
-#             run_function()
-#         except WorkerError:
-
 class Worker(billiard.Process):
     send_signals = False
     comm_driver = None
@@ -86,10 +76,8 @@ class Worker(billiard.Process):
     max_batches = None
     batch_count = None
 
-    def __init__(self, worker_id,
-                 # controller_socket_str,
-                 # sync_str,
-                 # controller_queue_depth=1,
+    def __init__(self,
+                 worker_id,
                  comm_driver,
                  sleep_duration=1,
                  **kwargs):
@@ -98,16 +86,6 @@ class Worker(billiard.Process):
         np.random.seed()
         self.comm_driver = comm_driver
         self.comm_driver.start()
-        # zmq_context = zmq.Context()
-        # self.controller_socket = zmq_context.socket(zmq.SUB)
-        # self.controller_socket.setsockopt(zmq.RCVHWM, controller_queue_depth)
-        # self.controller_socket.setsockopt(zmq.SUBSCRIBE, str(worker_id))
-        # self.controller_socket.connect(controller_socket_str)
-        #
-        # self.sync_client = zmq_context.socket(zmq.REQ)
-        # self.sync_client.connect(sync_str)
-
-        # self.control_queue = multiprocessing.Queue(maxsize=controller_queue_depth)
         self.worker_id = worker_id
 
         self.stop = mp.Value('i', 0)
@@ -118,48 +96,19 @@ class Worker(billiard.Process):
         self.batch_count = 0
         self.file_handle_holder = dict()
         self.sleep_duration = sleep_duration
-
-        self.synced = False
-
         self.run = error_handler(self)(type(self).run)
 
     def run(self, **kwargs):
         return
 
-    # def send_command(self, payload, block=True):
-    #     try:
-    #         # self.control_queue.put(payload, block=block)
-    #         self.controller_socket.send_pyobj(payload, flags=zmq.NOBLOCK)
-    #         return True
-    #     # except Queue.Full:
-    #     except zmq.ZMQError:
-    #         # self.sleep()
-    #         # worker_log.debug(" *{0}* command queue full".format(self.worker_id))
-    #         return False
-
-    # def get_command(self, block=True):
-    # try:
-    #     # return self.control_queue.get(block=block)
-    #     return self.comm_driver.read('ctl')
-    # # except Queue.Empty:
-    # except :
-    #     # worker_log.debug(" *{0}* command queue empty".format(self.worker_id))
-    #     # self.sleep()
-    #     return None
-    # return self.comm_driver.read('ctl')
-
     def get_all_commands(self):
         while not self.stop_check:
-            # tmp = self.get_command(block=False)
             msg = self.comm_driver.read('ctl', block=False)
             if msg is None:
                 pass
             elif msg in [ERROR, EXIT]:
-                # self.hard_stop.set()
-                # print('{} SHOULD STOP'.format(self.worker_id))
                 self.stop_check = True
                 # TODO - wghilliard - this is super hacky
-                # self.comm_driver.write('ctl', EXIT, block=False)
                 self.comm_driver.write('ctl', EXIT)
             elif msg == PRUNE:
                 self.stop_check = True
@@ -175,20 +124,10 @@ class Worker(billiard.Process):
         return self.stop_check
 
     def seppuku(self):
-        # for file_handle in self.file_handle_holder:
-        #     try:
-        #         self.file_handle_holder[file_handle].close()
-        #     except Exception as e:
-        #         lg.debug(e)
-
         with self.stop.get_lock():
             self.stop.value = 1
 
     def debug(self, message):
-        # if isinstance(message, list):
-        #     message = " ".join(message)
-        # lg.info('{0} {1}'.format(time.time(), message))
-
         pass
 
     def sleep(self):

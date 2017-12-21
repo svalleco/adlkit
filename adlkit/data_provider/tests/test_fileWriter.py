@@ -23,8 +23,8 @@ class TestWriter(TestCase):
         max_batches = shape[0]
 
         def test_data_src():
-            for index, datum in enumerate(np.random.rand(*shape)):
-                yield (str(index ** 2), datum)
+            for datum in np.random.rand(*shape):
+                yield datum
 
         writer = BaseWriter(
                 worker_id=1,
@@ -42,6 +42,7 @@ class TestWriter(TestCase):
             tmp_handle = tmp_io_driver.get(data_dst)
 
             for key in tmp_handle.keys():
-                self.assertEqual(tmp_handle[key].shape, tuple(shape[1:]))
+                print(tmp_handle[key].shape)
+                self.assertEqual(tmp_handle[key].shape, tuple(shape))
 
         os.remove(data_dst)

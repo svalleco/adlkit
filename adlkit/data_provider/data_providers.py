@@ -25,7 +25,7 @@ import multiprocessing
 import signal
 import time
 from abc import ABCMeta, abstractmethod
-import itertools
+
 import numpy as np
 from future.utils import raise_with_traceback
 
@@ -208,14 +208,8 @@ class FileDataProvider(AbstractDataProvider):
         if self.config.catch_signals:
             signal.signal(signal.SIGTERM, self.hard_stop)
             signal.signal(signal.SIGUSR1, self.check_errors_and_stop)
-            # signal.signal(signal.SIGUSR2, self.check_errors_and_stop)
 
         self.worker_counter = collections.Counter()
-
-        # self.filler_count = 0
-        # self.reader_count = 0
-        # self.generator_count = 0
-        # self.writer_count = 0
 
         self.comm_driver = None
         self.proxy_comm_drivers = list()
@@ -229,8 +223,6 @@ class FileDataProvider(AbstractDataProvider):
         self.watcher = None
         self.generators = list()
         self.writers = list()
-
-        # self.preloaded = False
 
         self.shared_memory = list()
         self.malloc_requests = list()
@@ -252,10 +244,6 @@ class FileDataProvider(AbstractDataProvider):
                     ('file_index', (2,))
             )
             self.config.translate_col_to_file_name = -1
-
-        # TODO signal catching
-        # self.sig1 = signal.getsignal(signal.SIGINT)
-        # self.sig2 = signal.getsignal(signal.SIGTERM)
 
     def should_stop(self):
         return self.stop_check
@@ -292,7 +280,6 @@ class FileDataProvider(AbstractDataProvider):
 
             if isinstance(class_index_map, dict):
                 class_index = class_index_map[class_name]
-                # class_count = len(class_index_map)
             else:
                 try:
                     class_index = tmp_class_index_map[class_name]
@@ -347,14 +334,7 @@ class FileDataProvider(AbstractDataProvider):
 
     def process_malloc_requests(self):
         malloc_wait_time = time.time()
-
-        # malloc_requests = self.malloc_queue.get()
         malloc_requests = self.comm_driver.read('malloc')
-
-        # for index, request in self.malloc_requests:
-        #     if request[0] == malloc_request[0]:
-        #         self.malloc_requests[index] = malloc_request
-        #         malloc_request = None
 
         if malloc_requests is not None:
             self.malloc_requests.extend(malloc_requests)
@@ -366,21 +346,6 @@ class FileDataProvider(AbstractDataProvider):
         :return:
         """
 
-        # loop_list = []
-        #
-        # if isinstance(in_reader_id, int):
-        #     loop_list.append(in_reader_id)
-        #
-        # elif isinstance(in_reader_id, list):
-        #     loop_list = in_reader_id
-        #
-        # for reader_id in loop_list:
-        #     # ensuring we don't index error
-        #     if len(self.shared_memory) < reader_id + 1:
-        #         self.shared_memory.extend(
-        #                 range(len(self.shared_memory), reader_id + 1))
-
-        # buckets = list()
         if self.shared_memory is None or (isinstance(self.shared_memory, list) and len(self.shared_memory) == 0):
             self.shared_memory = list()
             for bucket in range(self.config.n_buckets):
@@ -402,14 +367,6 @@ class FileDataProvider(AbstractDataProvider):
                 generator_end_counter = multiprocessing.Value('i', 0)
                 self.shared_memory.append([state, data_sets, generator_start_counter,
                                            generator_end_counter])
-
-            # self.shared_memory[reader_id] = buckets
-
-    # def wait_for_malloc_requests(self):
-    #     malloc_wait_time = time.time()
-    #     # TODO better logic is needed to determine when to hard_stop waiting, data set naming is weird
-    #     while len(self.config.data_sets) > len(self.malloc_requests) and not self.should_stop():
-    #         self.process_malloc_requests(timeout=1)
 
     def start(self, filler_class, reader_class, generator_class,
               filler_io_driver=None,
@@ -468,8 +425,7 @@ class FileDataProvider(AbstractDataProvider):
                           shape_reader_io_driver=reader_io_driver,
                           io_driver=filler_io_driver,
                           **kwargs)
-        # if self.config.wait_for_malloc:
-        #     self.wait_for_malloc_requests()
+
         self.process_malloc_requests()
         self.make_shared_malloc()
 
@@ -481,19 +437,17 @@ class FileDataProvider(AbstractDataProvider):
         except Exception as e:
             data_provider_logger.error(e)
             self.hard_stop()
-            # raise ValueError("n_readers most likely isn't set correctly")
             raise_with_traceback(e)
 
         if watcher_class is not None:
             self.start_watcher(watcher_class)
 
         try:
-            for generator_id in range(self.config.n_generators + len(self.config.writer_config)):
+            for generator_id in range(self.config.n_generators + len(self.config.writer_config or [])):
                 self.start_generator(generator_class, **kwargs)
         except Exception as e:
             data_provider_logger.error(e)
             self.hard_stop()
-            # raise ValueError("n_generators or writer_config most likely isn't set correctly")
             raise_with_traceback(e)
 
         generator_offset = self.config.n_generators
@@ -516,8 +470,6 @@ class FileDataProvider(AbstractDataProvider):
             assert shape_reader_io_driver is not None
             shape_reader = shape_reader_class(worker_id=0,
                                               comm_driver=self.comm_driver,
-                                              # in_queue=None,
-                                              # out_queue=None,
                                               shared_memory_pointer=list(),
                                               max_batches=0,
                                               read_size=self.config.read_size,
@@ -528,8 +480,6 @@ class FileDataProvider(AbstractDataProvider):
 
         # TODO handle case where filler already exists
         if issubclass(filler_class, BaseFiller):
-            # filler_id = self.filler_count
-            # self.filler_count += 1
             filler_id = self.worker_counter['filler']
             self.worker_counter['filler'] += 1
 
@@ -538,10 +488,8 @@ class FileDataProvider(AbstractDataProvider):
                                        max_batches=self.config.max_batches,
                                        file_index_list=self.config.file_index_list,
                                        comm_driver=self.comm_driver,
-                                       # in_queue=self.in_queue,
                                        worker_id=filler_id,
                                        read_size=self.config.read_size,
-                                       # malloc_queue=self.malloc_queue,
                                        data_sets=self.config.data_sets,
                                        shape_reader=shape_reader,
                                        wrap_examples=self.config.wrap_examples,
@@ -560,20 +508,13 @@ class FileDataProvider(AbstractDataProvider):
 
     def start_reader(self, reader_class, io_driver, **kwargs):
         if issubclass(reader_class, BaseReader):
-            # TODO possible off by one error
-            # reader_id = self.reader_count
-            # self.reader_count += 1
             reader_id = self.worker_counter['reader']
             self.worker_counter['reader'] += 1
 
             self.make_shared_malloc()
-
-            # extending our arrays to track the readers
             self._extend_array(self.readers, reader_id)
 
             self.readers[reader_id] = reader_class(
-                    # in_queue=self.in_queue,
-                    # out_queue=self.out_queue,
                     comm_driver=self.comm_driver,
                     shared_memory_pointer=self.shared_memory,
                     max_batches=self.config.max_batches,
@@ -599,8 +540,6 @@ class FileDataProvider(AbstractDataProvider):
 
     def start_generator(self, generator_class, **kwargs):
         if issubclass(generator_class, BaseGenerator):
-            # generator_id = self.generator_count
-            # self.generator_count += 1
             generator_id = self.worker_counter['generator']
             self.worker_counter['generator'] += 1
 
@@ -610,13 +549,11 @@ class FileDataProvider(AbstractDataProvider):
                 comm_driver = self.comm_driver
                 watched = False
             else:
-                # out_queue = self.multicast_queues[generator_id]
                 comm_driver = self.proxy_comm_drivers[generator_id]
                 watched = True
 
             self.generators[generator_id] = generator_class(
                     comm_driver=comm_driver,
-                    # out_queue=out_queue,
                     batch_size=self.config.batch_size,
                     max_batches=self.config.max_batches,
                     shared_memory_pointer=self.shared_memory,
@@ -635,7 +572,6 @@ class FileDataProvider(AbstractDataProvider):
     def start_watcher(self, watcher_class, **kwargs):
         if issubclass(watcher_class, BaseWatcher):
             # NOTE - wghilliard - having more than one of these makes sense in edge cases, experimental.
-            # watcher_id = 0
             watcher_id = self.worker_counter['watcher']
             self.worker_counter['watcher'] += 1
 
@@ -643,8 +579,6 @@ class FileDataProvider(AbstractDataProvider):
                                          shared_memory_pointer=self.shared_memory,
                                          comm_driver=self.comm_driver,
                                          proxy_comm_drivers=self.proxy_comm_drivers,
-                                         # out_queue=self.out_queue,
-                                         # multicast_queues=self.multicast_queues,
                                          sleep_duration=self.config.sleep_duration,
                                          max_batches=self.config.max_batches,
                                          **kwargs)
@@ -658,14 +592,11 @@ class FileDataProvider(AbstractDataProvider):
 
     def start_writer(self, writer_class, generator_id, **kwargs):
         if issubclass(writer_class, BaseWriter):
-            # writer_id = self.writer_count
-            # self.writer_count += 1
             writer_id = self.worker_counter['writer']
             self.worker_counter['writer'] += 1
 
             config = self.config.writer_config[writer_id]
 
-            # data_src = zip(itertools.cycle(['cache']), self.generators[generator_id].generate())
             data_src = self.generators[generator_id].generate()
 
             self._extend_array(self.writers, writer_id)
@@ -690,13 +621,6 @@ class FileDataProvider(AbstractDataProvider):
             return None
 
     def start_queues(self):
-        # self.in_queue = billiard.Queue(
-        #         maxsize=self.config.q_multiplier * self.config.n_readers)
-        # self.out_queue = billiard.Queue(
-        #         maxsize=self.config.q_multiplier * self.config.n_readers)
-        # self.malloc_queue = billiard.Queue(
-        #         maxsize=self.config.q_multiplier * self.config.n_readers)
-
         # TODO - wghilliard - are this a reasonable way to start the comm_driver?
         self.comm_driver = QueueCommDriver({
             'ctl'   : self.config.q_multiplier * self.config.n_readers,
@@ -705,64 +629,32 @@ class FileDataProvider(AbstractDataProvider):
             'out'   : self.config.q_multiplier * self.config.n_readers
         })
 
-        for _ in range(self.config.n_generators + len(self.config.writer_config)):
-            # self.multicast_queues.append(billiard.Queue(maxsize=self.config.q_multiplier * self.config.n_readers))
+        for _ in range(self.config.n_generators + len(self.config.writer_config or [])):
             self.proxy_comm_drivers.append(QueueCommDriver({'out': self.config.q_multiplier * self.config.n_readers,
                                                             'ctl': self.comm_driver.comm_handles['ctl']}))
-            # multiprocessing.Queue(maxsize=self.config.q_multiplier * self.config.n_readers))
 
     def stop_queues(self):
-        # try:
-        #     self.in_queue.close()
-        #     self.in_queue = None
-        # except Exception as e:
-        #     data_provider_logger.error(e)
-        #
-        # try:
-        #     self.out_queue.close()
-        #     self.out_queue = None
-        # except Exception as e:
-        #     data_provider_logger.error(e)
-        #
-        # try:
-        #     self.malloc_queue.close()
-        #     self.malloc_queue = None
-        # except Exception as e:
-        #     data_provider_logger.error(e)
         if self.comm_driver:
             self.comm_driver.stop()
             self.comm_driver = None
-        # for queueindex in range(len(self.multicast_queues)):
+
         for comm_driver in self.proxy_comm_drivers:
             try:
-                # self.multicast_queues[queue_index].close()
+
                 comm_driver.stop()
             except Exception as e:
                 data_provider_logger.error(e)
 
-        # self.multicast_queues = list()
+
         self.proxy_comm_drivers = list()
 
     def hard_stop(self):
-        # try:
-        #     self.stop_filler()
-        # except Exception as e:
-        #     print(e)
-        # for _ in range(len(self.readers)):
         try:
             self.comm_driver.write('ctl', EXIT)
         except AttributeError:
             pass
         except Exception as e:
             raise_with_traceback(e)
-        # for reader_index in range(len(self.readers)):
-        #     try:
-        #         self.stop_reader(reader_index)
-        #     except Exception as e:
-        #         data_provider_logger.debug(e)
-
-        # if self.watcher is not None:
-        #     self.stop_watcher()
 
         self.drain_queues()
         self.stop_queues()
@@ -807,56 +699,14 @@ class FileDataProvider(AbstractDataProvider):
         raise DataProviderError()
 
     def drain_queues(self):
-        # while True:
-        #     try:
-        #         self.in_queue.get(block=False)
-        #     except Queue.Empty:
-        #         break
-        #
-        # while True:
-        #     try:
-        #         self.out_queue.get(timeout=1)
-        #     except Queue.Empty:
-        #         break
-        #
-        # while True:
-        #     try:
-        #         self.malloc_queue.get(timeout=1)
-        #     except Queue.Empty:
-        #         break
         if self.comm_driver:
             self.comm_driver.drain(['out', 'in', 'malloc'])
-        # self.comm_driver.drain()
 
         for comm_driver in self.proxy_comm_drivers:
             comm_driver.drain(['out'])
-            # comm_driver.drain()
-        # for queue_index in range(len(self.multicast_queues)):
-        #     while True:
-        #         try:
-        #             self.multicast_queues[queue_index].get(timeout=1)
-        #         except Queue.Empty:
-        #             break
-        #         break
-
-    # def stop_filler(self):
-    #     """
-    #
-    #     if stop fails, kill by pid / handle at end of timeout ?
-    #     :return:
-    #     """
-    # self.filler.send_command(STOP_MESSAGE)
-    # self.comm_driver.write(EXIT)
 
     def stop_reader(self):
-        # try:
-        #     self.readers[reader_id].send_command(STOP_MESSAGE)
-        # except IndexError:
-        #     pass
         self.comm_driver.write('ctl', PRUNE)
-
-    # def stop_watcher(self):
-    #     self.watcher.send_command(STOP_MESSAGE)
 
     def first(self):
         if isinstance(self.generators[0], BaseGenerator):
@@ -898,11 +748,6 @@ class FileDataProvider(AbstractDataProvider):
 
 class H5FileDataProvider(FileDataProvider):
     def start(self, **kwargs):
-        # super(H5FileDataProvider, self).start(H5Filler, H5Reader, BaseGenerator, watcher_class=BaseWatcher,
-        # shape_reader_class=H5Reader, **kwargs)
-        # super(H5FileDataProvider, self).start(H5Filler, H5Reader, BaseGenerator,
-        #                                       shape_reader_class=H5Reader,
-        #                                       **kwargs)
         return super(H5FileDataProvider, self).start(FileFiller, FileReader, BaseGenerator,
                                                      filler_io_driver=H5DataIODriver,
                                                      reader_io_driver=H5DataIODriver,
@@ -917,8 +762,4 @@ class WatchedH5FileDataProvider(FileDataProvider):
                                                             reader_io_driver=H5DataIODriver,
                                                             watcher_class=BaseWatcher,
                                                             shape_reader_class=FileReader, **kwargs)
-        # super(H5FileDataProvider, self).start(H5Filler, H5Reader, BaseGenerator,
-        #                                       shape_reader_class=H5Reader,
-        #                                       **kwargs)
-
 

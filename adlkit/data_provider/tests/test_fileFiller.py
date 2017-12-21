@@ -52,17 +52,18 @@ class TestFileFiller(TestCase):
             'malloc': 100
         })
 
-        filler = FileFiller(classes=mock_classes,
-                            class_index_map=mock_class_index_map,
-                            comm_driver=comm_driver,
-                            worker_id=1,
-                            read_size=read_size,
-                            max_batches=max_batches,
-                            data_sets=mock_data_sets,
-                            file_index_list=mock_file_index_list,
-                            wrap_examples=True,
-                            io_driver=H5DataIODriver()
-                            )
+        filler = FileFiller(
+                classes=mock_classes,
+                class_index_map=mock_class_index_map,
+                comm_driver=comm_driver,
+                worker_id=1,
+                read_size=read_size,
+                max_batches=max_batches,
+                data_sets=mock_data_sets,
+                file_index_list=mock_file_index_list,
+                wrap_examples=True,
+                io_driver=H5DataIODriver()
+        )
 
         filler.fill()
 

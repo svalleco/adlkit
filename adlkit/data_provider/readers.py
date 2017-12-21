@@ -24,12 +24,12 @@ import time
 
 import keras
 import numpy as np
-from six import raise_from
+from future.utils import raise_with_traceback
 
 from adlkit.data_provider.comm_drivers import BaseCommDriver
 from .config import READER_OFFSET
 from .io_drivers import DataIODriver
-from .workers import Worker, error_handler
+from .workers import Worker
 
 # lg.basicConfig(level=lg.INFO)
 
@@ -65,21 +65,15 @@ class BaseReader(Worker):
 
         self.io_driver = io_driver
 
-        # self.read = error_handler(self)(type(self).read)
-
     def debug(self, message):
         if isinstance(message, list):
             message = " ".join(message)
-        # super(BaseReader, self).debug(" :READER #{0}: ".format(self.reader_id) + message)
+
         reader_logger.debug(" reader_id={0} ".format(self.worker_id) + message)
-        # if isinstance(message, list):
-        #     message = " ".join(message)
-        # lg.info("READER #{0}: {1}".format(self.reader_id, message))
 
     def info(self, message):
         if isinstance(message, list):
             message = " ".join(message)
-        # super(BaseReader, self).debug(" :READER #{0}: ".format(self.reader_id) + message)
         reader_logger.info(" reader_id={0} reader_batch_id={1} ".format(self.worker_id,
                                                                         self.batch_count) + message)
 
@@ -96,7 +90,6 @@ class BaseReader(Worker):
                                                                          self.batch_count) + message)
 
     def run(self, **kwargs):
-        # signal.signal(signal.SIGINT, signal.SIG_IGN)
         self.read()
 
     def read(self):
@@ -106,11 +99,10 @@ class BaseReader(Worker):
             in_queue_time = time.time()
 
             while not self.should_stop():
+                # TODO - wghilliard - does strictly reading from the comm_driver make sense?
                 # batch = self.get_batch()
                 batch = self.comm_driver.read('in', block=False)
                 if batch is not None:
-                    # self.info("in_queue_get_wait_time={0} in_queue_size={1}".format(time.time() - in_queue_time,
-                    # self.in_queue.qsize()))
                     self.debug("in_queue_get_wait_time={0}".format(time.time() - in_queue_time))
                     start_time = time.time()
                     self.debug("starting to prepare batch")
@@ -127,7 +119,6 @@ class BaseReader(Worker):
                     self.debug("starting out_queue.put")
                     wait_time = time.time()
                     while not self.should_stop():
-                        # self.out_queue.put(data_pointer, timeout=0)
                         success = self.comm_driver.write('out', data_pointer, block=False)
                         if not success:
                             self.debug("comm_driver['out'] is full, sleeping")
@@ -138,9 +129,6 @@ class BaseReader(Worker):
 
                     self.debug("batch_read_time={0} out_queue_put_wait_time={1}".format(time.time() - start_time,
                                                                                         time.time() - wait_time))
-                    # self.info("batch_read_time={0} out_queue_put_wait_time={1} out_queue_size={2}".format(
-                    # time.time() -
-                    #  start_time, time.time() - wait_time, self.out_queue.qsize()))
 
                     self.batch_count += 1
                     in_queue_time = time.time()
@@ -170,7 +158,7 @@ class BaseReader(Worker):
         except Exception as e:
             self.error("cannot get a bucket")
             self.error(e)
-            raise_from(Exception(e), e)
+            raise_with_traceback(e)
         return None
 
 
@@ -216,11 +204,8 @@ class FileReader(BaseReader):
         # saving memory address of shared_memory_pointer for check later
         # tmp = hex(id(self.shared_memory_pointer[0][0][1][0]))
 
-        # payloads = list()
         payloads = collections.OrderedDict()
 
-        # file_list = list()
-        # file_struct = collections.OrderedDict()
         tmp_file_struct = list()
 
         tmp_index_payload = None
@@ -232,14 +217,6 @@ class FileReader(BaseReader):
             file_path_index, data_sets, class_name, read_descriptor, batch_id = read_request
 
             file_path = self.file_index_list[file_path_index]
-
-            # if self.cache_handles:
-            #     if file_path in self.file_handle_holder:
-            #         h5_file_handle = self.file_handle_holder[file_path]
-            #     else:
-            #         h5_file_handle = self.file_handle_holder[file_path] = h5py.File(file_path, 'r')
-            # else:
-            #     h5_file_handle = h5py.File(file_path, 'r')
 
             data_handle = self.io_driver.get(file_path)
 
@@ -290,28 +267,18 @@ class FileReader(BaseReader):
                 lg.critical("n_examples={} start={} len(tmp_class_index)={}".format(n_examples,
                                                                                     start,
                                                                                     len(tmp_class_index)))
-                raise_from(ValueError(), e)
-
-            # tmp_file_index = np.full(n_examples, self.class_index_map[class_name])
-            # for thing in range(n_examples):
+                raise_with_traceback(e)
 
             start += n_examples
 
-            # if not self.cache_handles:
             self.io_driver.close(file_path, data_handle)
 
-        self.debug("payloads_build_time={0} batch_id={1}".format(time.time() - payloads_build_time,
-                                                                 batch_id))
+        self.debug("payloads_build_time={0} batch_id={1}".format(time.time() - payloads_build_time, batch_id))
 
         concat_time = time.time()
         for data_set in payloads:
             try:
                 payloads[data_set] = np.concatenate(payloads[data_set])
-                # agg = list()
-                # for sub_payload in payloads[data_set]:
-                #     agg.extend(sub_payload)
-                # payloads[data_set] = agg
-                # payloads[data_set] = sum(payloads[data_set], list())
             except ValueError as e:
                 try:
                     payloads[data_set] = sum(payloads[data_set], list())
@@ -345,14 +312,6 @@ class FileReader(BaseReader):
         else:
             payloads = payloads.values()
 
-        # if self.make_class_index:
-        #     payloads.append(tmp_index_payload)
-
-        # if self.make_one_hot:
-        #     tmp_one_hot = keras.utils.np_utils.to_categorical(tmp_index_payload,
-        #                                                       len(self.class_index_map))
-        #     payloads.append(tmp_one_hot)
-
         if self.shuffle:
             payloads = self.shuffle_in_unison_inplace(payloads)
 
@@ -369,12 +328,12 @@ class FileReader(BaseReader):
                                     data_set_index,
                                     batch,
                                     payload))
-
-                    # sys.exit(1)
+                except IndexError as e:
+                    raise_with_traceback(e)
 
             self.debug("store_in_shared_time={0} batch_id={1}".format(time.time() - store_in_shared_time,
                                                                       batch_id))
-            # return self.worker_id - READER_OFFSET, bucket_index, data_sets, batch_id
+
             return bucket_index, data_sets, batch_id
         else:
             return payloads

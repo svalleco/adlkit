@@ -55,28 +55,6 @@ class TestFileReader(TestCase):
         batch_size = 500
         read_size = 2 * batch_size
         bucket_length = 10
-        # in_queue = multiprocessing.Queue(maxsize=max_batches)
-        # out_queue = multiprocessing.Queue(maxsize=max_batches)
-        # in_queue_str = 'ipc:///tmp/adlkit_socks_0'
-        # out_queue_str = 'ipc:///tmp/adlkit_socks_1'
-        # controller_socket_str = 'ipc:///tmp/adlkit_socks_2'
-        #
-        #
-        #
-        # zmq_context = zmq.Context()
-        # in_queue_socket = zmq_context.socket(zmq.PUSH)
-        # in_queue_socket.setsockopt(zmq.RCVHWM, 1000)
-        # in_queue_socket.bind(in_queue_str)
-        #
-        # zmq_context = zmq.Context()
-        # out_queue_socket = zmq_context.socket(zmq.PULL)
-        # out_queue_socket.setsockopt(zmq.RCVHWM, 1000)
-        # out_queue_socket.connect(out_queue_str)
-        #
-        # sync_str = 'ipc:///tmp/adlkit_socks_3'
-        #
-        # sync_service = zmq_context.socket(zmq.REP)
-        # sync_service.bind(sync_str)
 
         comm_driver = QueueCommDriver({
             'ctl': 10,
@@ -129,14 +107,8 @@ class TestFileReader(TestCase):
         start_time = datetime.datetime.utcnow()
         end_time = datetime.timedelta(seconds=10) + start_time
         while datetime.datetime.utcnow() < end_time and len(out) != max_batches:
-            # batch = None
-            # try:
-            # batch = out_queue.get(timeout=1)
             batch = comm_driver.read('out', block=False)
-            # except Queue.Empty:
-            # except zmq.ZMQError:
-            #     pass
-            # finally:
+
             if batch is not None:
                 out.append(batch)
 

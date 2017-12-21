@@ -146,6 +146,7 @@ class H5FileWrapper(object):
         #     if isinstance(key[0], str) and isinstance(key[-1], str):
         #         return
 
+        axis_0 = self.read_batches_per_epoch or 1
         if isinstance(value, (list, tuple)):
             group = self._data.require_group(key)
             # TODO - wghilliard - add support for recursive groups
@@ -154,7 +155,7 @@ class H5FileWrapper(object):
                 assert isinstance(item, np.ndarray)
                 # key = '{}/{}'.format(key, index)
                 if sub_key not in group.keys():
-                    axis_0 = self.read_batches_per_epoch or 1
+
                     data_set = group.create_dataset(sub_key,
                                                     shape=((axis_0,) + item.shape),
                                                     maxshape=((None,) + item.shape),
@@ -167,7 +168,19 @@ class H5FileWrapper(object):
                 data_set[-1] = item
 
         elif isinstance(value, np.ndarray):
-            self._data.require_dataset(key, data=value, chunks=True)
+
+            if key not in self._data.keys():
+                data_set = self._data.create_dataset(key,
+                                                     shape=((axis_0,) + value.shape),
+                                                     maxshape=((None,) + value.shape),
+                                                     dtype=value.dtype,
+                                                     chunks=True)
+            else:
+                data_set = self._data[key]
+                data_set.resize((data_set.shape[0] + 1,) + data_set.shape[1:])
+
+            # TODO - wghilliard - write at index
+            data_set[-1] = value
 
         else:
             msg = 'H5FileWrapper not sure how to handle type(payload)={}'.format(type(payload))
@@ -180,6 +193,9 @@ class H5FileWrapper(object):
             return self._data.close()
         except AttributeError:
             return None
+
+    def keys(self):
+        return self._data.keys()
 
 
 class H5DataIODriver(FileDataIODriver):

@@ -68,21 +68,14 @@ class BaseWriter(Worker):
 
         self.max_batches = max_batches
 
-        # self.complete = mp.Value('i', 0)
-
     def debug(self, message):
         if isinstance(message, list):
             message = " ".join(message)
-            # super(BaseReader, self).debug(" :READER #{0}: ".format(self.reader_id) + message)
         writer_lg.debug(" writer_id={0} ".format(self.worker_id) + message)
-        # if isinstance(message, list):
-        #     message = " ".join(message)
-        # lg.info("READER #{0}: {1}".format(self.reader_id, message))
 
     def info(self, message):
         if isinstance(message, list):
             message = " ".join(message)
-        # super(BaseReader, self).debug(" :READER #{0}: ".format(self.reader_id) + message)
         writer_lg.info(" writer_id={0} writer_batch_id={1} ".format(self.worker_id,
                                                                     self.batch_count) + message)
 
@@ -135,15 +128,5 @@ class BaseWriter(Worker):
                 next_datum_time = time.time()
 
         self.debug("exiting...")
-        # self.set_complete()
         self.seppuku()
 
-    # def set_complete(self):
-    #     with self.complete.get_lock():
-    #         self.complete.value = 1
-    #
-    #     return True
-    #
-    # def get_complete(self):
-    #     with self.complete.get_lock():
-    #         return self.complete.value

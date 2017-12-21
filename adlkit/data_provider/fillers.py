@@ -141,13 +141,6 @@ class FileFiller(BaseFiller):
         self.skip = skip
         self.read_size = read_size
 
-        # self.mode_index = 0
-        # self.modes = {
-        #     'train': 90,
-        #     'test' : 10,
-        #     'cache': '*'
-        # }
-
         if callable(filter_function):
             self.filter_function = dict()
             for key in classes.keys():
@@ -192,14 +185,6 @@ class FileFiller(BaseFiller):
                 name = 'inferred_{}'.format(item_index)
                 malloc_requests.append((name, shape))
 
-        # while True:
-        #     try:
-        #         # self.malloc_queue.put(malloc_requests)
-        #         # self.malloc_queue_socket.send(pickle.dumps(malloc_requests), flags=zmq.NOBLOCK)
-        #         break
-        #     # except Queue.Full:
-        #     except zmq.ZMQError:
-        #         pass
         self.comm_driver.write('malloc', malloc_requests)
 
         self.debug("informing data provider of malloc shapes `{0}`".format(malloc_requests))
@@ -258,7 +243,7 @@ class FileFiller(BaseFiller):
                         if data_set not in tmp_data_set_tracker:
                             tmp_data_set_tracker.append(data_set)
 
-                    # TODO implement the assert
+                    # TODO - wghilliard - implement the assert
                     # assert (sum(tmp_list) != len(tmp_list) * tmp_list[0],
                     #         "{0} has datasets with mismatched tensor shapes".format(file_name))
 
