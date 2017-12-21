@@ -28,7 +28,7 @@ from future.utils import raise_with_traceback
 
 from adlkit.data_provider.comm_drivers import BaseCommDriver
 from .config import READER_OFFSET
-from .io_drivers import DataIODriver
+from .io_drivers import DataIODriver, IOController
 from .workers import Worker
 
 # lg.basicConfig(level=lg.INFO)
@@ -41,7 +41,9 @@ EXIT = object()
 class BaseReader(Worker):
     io_driver = None
 
-    def __init__(self, worker_id, comm_driver, shared_memory_pointer, read_size, io_driver,
+    def __init__(self, worker_id, comm_driver, shared_memory_pointer, read_size,
+                 # io_driver,
+                 io_ctlr,
                  max_batches=None, **kwargs):
         """
         :param worker_index:
@@ -53,7 +55,8 @@ class BaseReader(Worker):
         # TODO not sure if this is the correct syntax
         # https://github.com/numpy/numpy/blob/master/numpy/core/memmap.py
         assert isinstance(comm_driver, BaseCommDriver)
-        assert isinstance(io_driver, DataIODriver)
+        # assert isinstance(io_driver, DataIODriver)
+        assert isinstance(io_ctlr, IOController)
         super(BaseReader, self).__init__(worker_id=worker_id + READER_OFFSET,
                                          comm_driver=comm_driver,
                                          **kwargs)
@@ -63,7 +66,8 @@ class BaseReader(Worker):
         self.read_size = read_size
         self.reader_id = self.worker_id - READER_OFFSET
 
-        self.io_driver = io_driver
+        # self.io_driver = io_driver
+        self.io_ctlr = io_ctlr
 
     def debug(self, message):
         if isinstance(message, list):
@@ -94,7 +98,7 @@ class BaseReader(Worker):
 
     def read(self):
         self.debug("starting...")
-        with self.io_driver:
+        with self.io_ctlr:
 
             in_queue_time = time.time()
 
@@ -164,17 +168,20 @@ class BaseReader(Worker):
 
 class FileReader(BaseReader):
     def __init__(self, worker_id, comm_driver, shared_memory_pointer, read_size, class_index_map, file_index_list,
+                 io_ctlr,
                  max_batches=None,
                  process_function=None,
                  make_class_index=False,
                  make_one_hot=False,
                  make_file_index=False,
                  shuffle=True,
+
                  **kwargs):
         super(self.__class__, self).__init__(worker_id=worker_id,
                                              comm_driver=comm_driver,
                                              shared_memory_pointer=shared_memory_pointer,
                                              read_size=read_size,
+                                             io_ctlr=io_ctlr,
                                              **kwargs)
         # necessary data items
         self.max_batches = max_batches
@@ -187,6 +194,9 @@ class FileReader(BaseReader):
         self.make_one_hot = make_one_hot
         self.make_file_index = make_file_index
         self.shuffle = shuffle
+
+        assert isinstance(io_ctlr, IOController)
+        self.io_ctl = io_ctlr
 
     def process_batch(self, batch, store_in_shared=True):
         batch_id = 0
@@ -217,61 +227,62 @@ class FileReader(BaseReader):
             file_path_index, data_sets, class_name, read_descriptor, batch_id = read_request
 
             file_path = self.file_index_list[file_path_index]
+            io_driver = self.io_ctlr(file_path)
+            with io_driver:
+                data_handle = io_driver.get(file_path)
 
-            data_handle = self.io_driver.get(file_path)
+                io_driver_to_payloads_time = time.time()
+                for data_set in data_sets:
+                    try:
+                        payloads[data_set][read_index]
+                    except KeyError:
+                        payloads[data_set] = range(n_read_requests)
 
-            io_driver_to_payloads_time = time.time()
-            for data_set in data_sets:
-                try:
-                    payloads[data_set][read_index]
-                except KeyError:
-                    payloads[data_set] = range(n_read_requests)
+                    if isinstance(read_descriptor, tuple):
+                        # TODO use read_direct function instead
+                        # http://docs.h5py.org/en/latest/high/dataset.html
+                        payloads[data_set][read_index] = np.array(
+                                data_handle[data_set][read_descriptor[0]:read_descriptor[1]])
+
+                        # payloads[data_set_index][read_index] = h5_file_handle[data_set][read_descriptor[
+                        # 0]:read_descriptor[1]]
+
+                    elif isinstance(read_descriptor, list) or isinstance(read_descriptor, np.ndarray):
+                        # TODO there is potentially a faster way
+                        # https://stackoverflow.com/questions/21766145/h5py-correct-way-to-slice-array-datasets
+                        # payloads[data_set][read_index] = np.take(h5_file_handle[data_set], read_descriptor, axis=0)
+                        payloads[data_set][read_index] = data_handle[data_set][read_descriptor]
+
+                self.debug("io_driver_to_payloads_time={0} read_index={1} batch_id={2}".format(time.time() -
+                                                                                               io_driver_to_payloads_time,
+                                                                                               read_index,
+                                                                                               batch_id))
+
+                if tmp_index_payload is None:
+                    tmp_index_payload = np.zeros(self.read_size)
 
                 if isinstance(read_descriptor, tuple):
-                    # TODO use read_direct function instead
-                    # http://docs.h5py.org/en/latest/high/dataset.html
-                    payloads[data_set][read_index] = np.array(
-                            data_handle[data_set][read_descriptor[0]:read_descriptor[1]])
-
-                    # payloads[data_set_index][read_index] = h5_file_handle[data_set][read_descriptor[
-                    # 0]:read_descriptor[1]]
+                    n_examples = read_descriptor[1] - read_descriptor[0]
+                    for index in range(read_descriptor[0], read_descriptor[1]):
+                        tmp_file_struct.append((file_path_index, index))
 
                 elif isinstance(read_descriptor, list) or isinstance(read_descriptor, np.ndarray):
-                    # TODO there is potentially a faster way
-                    # https://stackoverflow.com/questions/21766145/h5py-correct-way-to-slice-array-datasets
-                    # payloads[data_set][read_index] = np.take(h5_file_handle[data_set], read_descriptor, axis=0)
-                    payloads[data_set][read_index] = data_handle[data_set][read_descriptor]
+                    n_examples = len(read_descriptor)
+                    for index in read_descriptor:
+                        tmp_file_struct.append((file_path_index, index))
 
-            self.debug("io_driver_to_payloads_time={0} read_index={1} batch_id={2}".format(time.time() -
-                                                                                           io_driver_to_payloads_time,
-                                                                                           read_index,
-                                                                                           batch_id))
+                tmp_class_index = np.full(n_examples, self.class_index_map[class_name])
+                try:
+                    tmp_index_payload[start:start + n_examples] = tmp_class_index
+                except ValueError as e:
+                    lg.critical("n_examples={} start={} len(tmp_class_index)={}".format(n_examples,
+                                                                                        start,
+                                                                                        len(tmp_class_index)))
+                    raise_with_traceback(e)
 
-            if tmp_index_payload is None:
-                tmp_index_payload = np.zeros(self.read_size)
+                start += n_examples
 
-            if isinstance(read_descriptor, tuple):
-                n_examples = read_descriptor[1] - read_descriptor[0]
-                for index in range(read_descriptor[0], read_descriptor[1]):
-                    tmp_file_struct.append((file_path_index, index))
-
-            elif isinstance(read_descriptor, list) or isinstance(read_descriptor, np.ndarray):
-                n_examples = len(read_descriptor)
-                for index in read_descriptor:
-                    tmp_file_struct.append((file_path_index, index))
-
-            tmp_class_index = np.full(n_examples, self.class_index_map[class_name])
-            try:
-                tmp_index_payload[start:start + n_examples] = tmp_class_index
-            except ValueError as e:
-                lg.critical("n_examples={} start={} len(tmp_class_index)={}".format(n_examples,
-                                                                                    start,
-                                                                                    len(tmp_class_index)))
-                raise_with_traceback(e)
-
-            start += n_examples
-
-            self.io_driver.close(file_path, data_handle)
+                io_driver.close(file_path, data_handle)
 
         self.debug("payloads_build_time={0} batch_id={1}".format(time.time() - payloads_build_time, batch_id))
 

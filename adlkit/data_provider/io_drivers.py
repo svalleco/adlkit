@@ -17,12 +17,14 @@ AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE, either express
 or implied.  See the License for the specific language governing permissions and limitations under the License.
 """
-
 import logging as lg
 from abc import ABCMeta, abstractmethod
 
 import h5py
 import numpy as np
+from future.utils import raise_with_traceback
+
+from adlkit.data_catalog.abstract_data_catalog import DataPointer
 
 
 class DataIODriver(object):
@@ -71,11 +73,8 @@ class FileDataIODriver(DataIODriver):
         pass
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        for handle in self.file_handle_holder.values():
-            try:
-                handle.close()
-            except Exception as e:
-                lg.error(e)
+        if not self.cache_handles:
+            self.close_all()
 
     def get(self, descriptor, suppress=False, *args, **kwargs):
         if self.cache_handles:
@@ -101,8 +100,13 @@ class FileDataIODriver(DataIODriver):
     def close(self, descriptor, handle, force=False):
         if not self.cache_handles or force:
             self._close(handle)
-            if descriptor in self.file_handle_holder:
-                self.file_handle_holder[descriptor] = None
+            if descriptor and descriptor in self.file_handle_holder:
+                del self.file_handle_holder[descriptor]
+
+    def close_all(self):
+        for descriptor, handle in self.file_handle_holder.items():
+            self.close(descriptor, handle)
+        self.file_handle_holder = dict()
 
     def _get(self, descriptor, suppress=False, *args, **kwargs):
         return
@@ -116,11 +120,11 @@ class FileDataIODriver(DataIODriver):
 
 class H5FileWrapper(object):
     _data = None
-    read_batches_per_epoch = None
+    axis_0 = None
 
-    def __init__(self, descriptor, mode, read_batches_per_epoch=None):
+    def __init__(self, descriptor, mode, axis_0=None):
         self._data = h5py.File(descriptor, mode)
-        self.read_batches_per_epoch = read_batches_per_epoch
+        self.axis_0 = axis_0 or 1
 
     def __getitem__(self, item):
         payload = self._data[item]
@@ -146,7 +150,6 @@ class H5FileWrapper(object):
         #     if isinstance(key[0], str) and isinstance(key[-1], str):
         #         return
 
-        axis_0 = self.read_batches_per_epoch or 1
         if isinstance(value, (list, tuple)):
             group = self._data.require_group(key)
             # TODO - wghilliard - add support for recursive groups
@@ -157,7 +160,7 @@ class H5FileWrapper(object):
                 if sub_key not in group.keys():
 
                     data_set = group.create_dataset(sub_key,
-                                                    shape=((axis_0,) + item.shape),
+                                                    shape=((self.axis_0,) + item.shape),
                                                     maxshape=((None,) + item.shape),
                                                     dtype=item.dtype,
                                                     chunks=True)
@@ -171,7 +174,7 @@ class H5FileWrapper(object):
 
             if key not in self._data.keys():
                 data_set = self._data.create_dataset(key,
-                                                     shape=((axis_0,) + value.shape),
+                                                     shape=((self.axis_0,) + value.shape),
                                                      maxshape=((None,) + value.shape),
                                                      dtype=value.dtype,
                                                      chunks=True)
@@ -199,17 +202,88 @@ class H5FileWrapper(object):
 
 
 class H5DataIODriver(FileDataIODriver):
+    protocol = 'h5'
+
     def _get(self, descriptor, suppress=False, **kwargs):
         # return h5py.File(descriptor, 'r')
         return H5FileWrapper(descriptor=descriptor,
                              mode='r',
-                             read_batches_per_epoch=self.read_batches_per_epoch)
+                             axis_0=self.read_batches_per_epoch)
 
     def _put(self, descriptor, *args, **kwargs):
         # return h5py.File(descriptor, 'a')
         return H5FileWrapper(descriptor=descriptor,
                              mode='a',
-                             read_batches_per_epoch=self.read_batches_per_epoch)
+                             axis_0=self.read_batches_per_epoch)
 
     def _close(self, handle, *args, **kwargs):
         return handle.close()
+
+
+class Controller(object):
+    drivers = dict()
+    opts = None
+
+    is_initialized = False
+
+    def __init__(self, **kwargs):
+        self.opts = {
+            'keep_alive'   : True,
+            'cache_handles': True,
+            'auto_init'    : True,
+            'default'      : 'h5'
+        }
+        self.opts.update(kwargs)
+        if self.opts.get('auto_init'):
+            self.init()
+
+        self.drivers['default'] = self.drivers[self.opts.get('default')]
+
+    def init(self):
+        for key, driver_cls in self.drivers.items():
+            try:
+                self.drivers[key] = driver_cls(self.opts)
+            except TypeError:
+                pass
+            except Exception as e:
+                raise_with_traceback(e)
+
+        self.is_initialized = True
+
+
+class IOController(Controller):
+
+    def __call__(self, url, *args, **kwargs):
+        return self.parse_out_driver(url)
+
+    # @contextmanager
+    def parse_out_driver(self, url):
+        if url is not None:
+            # source_type, source_name, data_set_list, index = DataPointer._parse_url(url)
+            source_type = url.split('://')[0]
+            try:
+                return self.drivers[source_type]
+            except KeyError:
+                return self.drivers['default']
+
+        elif not self.opts.get('auto_init'):
+            self.init()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        for name, driver in self.drivers.items():
+            # try:
+            driver.close_all()
+            # except as e:
+            #     print(e)
+
+    def data_pointer_url_to_driver_handle(self, url):
+        source_type, source_name, data_set_list, index = DataPointer._parse_url(url)
+
+        driver = self.drivers[source_type]
+        return driver.get(source_name)
+
+
+Controller.drivers[H5DataIODriver.protocol] = H5DataIODriver

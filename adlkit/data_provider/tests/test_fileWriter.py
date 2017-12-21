@@ -4,7 +4,7 @@ from unittest import TestCase
 import numpy as np
 
 from adlkit.data_provider.comm_drivers import QueueCommDriver
-from adlkit.data_provider.io_drivers import H5DataIODriver
+from adlkit.data_provider.io_drivers import H5DataIODriver, IOController
 from adlkit.data_provider.writers import BaseWriter
 
 
@@ -32,7 +32,9 @@ class TestWriter(TestCase):
                 comm_driver=comm_driver,
                 data_src=test_data_src(),
                 data_dst=data_dst,
-                io_driver=H5DataIODriver())
+                # io_driver=H5DataIODriver()
+                io_ctlr=IOController()
+        )
 
         writer.write()
 

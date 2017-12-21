@@ -53,6 +53,7 @@ class BaseWatcher(Worker):
         self.watch()
 
     def watch(self):
+        # TODO - wghilliard - drop generator locks from writers
         # TODO - wghilliard - when pruning generators, batch dropping may occur
         # TODO - wghilliard - keep pace switch
         # TODO - wghilliard - time out for locks

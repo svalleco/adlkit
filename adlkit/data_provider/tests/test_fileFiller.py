@@ -25,7 +25,7 @@ from unittest import TestCase
 
 from adlkit.data_provider.comm_drivers import QueueCommDriver
 from adlkit.data_provider.fillers import FileFiller
-from adlkit.data_provider.io_drivers import H5DataIODriver
+from adlkit.data_provider.io_drivers import H5DataIODriver, IOController
 
 lg.basicConfig(level=lg.INFO, format='%(asctime)s %(levelname)s %(name)s %(message)s ')
 test_logger = lg.getLogger('data_providers.tests')
@@ -62,7 +62,8 @@ class TestFileFiller(TestCase):
                 data_sets=mock_data_sets,
                 file_index_list=mock_file_index_list,
                 wrap_examples=True,
-                io_driver=H5DataIODriver()
+                # io_driver=H5DataIODriver()
+                io_ctlr=IOController()
         )
 
         filler.fill()
@@ -115,7 +116,9 @@ class TestFileFiller(TestCase):
                             max_batches=max_batches,
                             data_sets=mock_data_sets,
                             file_index_list=mock_file_index_list,
-                            io_driver=H5DataIODriver())
+                            io_ctlr=IOController()
+                            # io_driver=H5DataIODriver()
+                            )
 
         filler.fill()
 
@@ -165,7 +168,9 @@ class TestFileFiller(TestCase):
                             max_batches=max_batches,
                             wrap_examples=True, data_sets=mock_data_sets,
                             file_index_list=mock_file_index_list,
-                            io_driver=H5DataIODriver())
+                            io_ctlr=IOController()
+                            # io_driver=H5DataIODriver()
+                            )
 
         filler.fill()
 
@@ -243,7 +248,9 @@ class TestFileFiller(TestCase):
                             wrap_examples=False,
                             data_sets=mock_data_sets,
                             file_index_list=mock_file_index_list,
-                            io_driver=H5DataIODriver())
+                            io_ctlr=IOController()
+                            # io_driver=H5DataIODriver(),
+                            )
 
         filler.fill()
 
@@ -300,7 +307,9 @@ class TestFileFiller(TestCase):
                             data_sets=mock_data_sets,
                             filter_function=mock_filter_function,
                             file_index_list=mock_file_index_list,
-                            io_driver=H5DataIODriver())
+                            io_ctlr=IOController()
+                            # io_driver=H5DataIODriver()
+                            )
 
         filler.fill()
 

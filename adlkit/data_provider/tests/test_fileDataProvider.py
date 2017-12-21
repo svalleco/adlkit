@@ -32,7 +32,7 @@ import numpy as np
 from adlkit.data_provider.data_providers import FileDataProvider, WatchedH5FileDataProvider
 from adlkit.data_provider.fillers import FileFiller
 from adlkit.data_provider.generators import BaseGenerator
-from adlkit.data_provider.io_drivers import H5DataIODriver
+from adlkit.data_provider.io_drivers import IOController
 from adlkit.data_provider.readers import FileReader
 from adlkit.data_provider.watchers import BaseWatcher
 from adlkit.data_provider.writers import BaseWriter
@@ -70,7 +70,7 @@ class TestFileDataProvider(TestCase):
 
         tmp_data_provider.start_queues()
         tmp_data_provider.start_filler(FileFiller,
-                                       io_driver=H5DataIODriver())
+                                       io_ctlr=IOController())
 
         tmp_data_provider.process_malloc_requests()
 
@@ -132,8 +132,8 @@ class TestFileDataProvider(TestCase):
 
         tmp_data_provider.start_queues()
         tmp_data_provider.start_filler(FileFiller,
-                                       io_driver=H5DataIODriver(),
-                                       shape_reader_io_driver=None)
+                                       io_ctlr=IOController(),
+                                       shape_reader_io_ctlr=None)
 
         tmp_data_provider.process_malloc_requests()
 
@@ -185,7 +185,7 @@ class TestFileDataProvider(TestCase):
 
         tmp_data_provider.start_queues()
         tmp_data_provider.start_filler(FileFiller,
-                                       io_driver=H5DataIODriver())
+                                       io_ctlr=IOController())
 
         max_batches = 10
 
@@ -236,7 +236,7 @@ class TestFileDataProvider(TestCase):
         tmp_data_provider.malloc_requests = mock_expected_malloc_requests
 
         reader_id = tmp_data_provider.start_reader(FileReader,
-                                                   io_driver=H5DataIODriver())
+                                                   io_ctlr=IOController())
         # lg.debug("I am expecting to write to {0}".format(hex(id(tmp_data_provider.shared_memory[0][0][1][0]))))
         max_batches = 5
 
@@ -294,7 +294,7 @@ class TestFileDataProvider(TestCase):
         tmp_data_provider.malloc_requests = mock_expected_malloc_requests
 
         reader_id = tmp_data_provider.start_reader(FileReader,
-                                                   io_driver=H5DataIODriver())
+                                                   io_ctlr=IOController())
         # lg.debug("I am expecting to write to {0}".format(hex(id(tmp_data_provider.shared_memory[0][0][1][0]))))
 
         out = list()
@@ -355,7 +355,7 @@ class TestFileDataProvider(TestCase):
         tmp_data_provider.malloc_requests = mock_expected_malloc_requests
 
         tmp_data_provider.start_reader(FileReader,
-                                       io_driver=H5DataIODriver())
+                                       io_ctlr=IOController())
         # lg.debug("I am expecting to write to {0}".format(hex(id(tmp_data_provider.shared_memory[0][0][1][0]))))
 
         this = BaseGenerator(comm_driver=tmp_data_provider.comm_driver,
@@ -405,7 +405,7 @@ class TestFileDataProvider(TestCase):
         tmp_data_provider.malloc_requests = mock_expected_malloc_requests
 
         tmp_data_provider.start_reader(FileReader,
-                                       io_driver=H5DataIODriver())
+                                       io_ctlr=IOController())
         # lg.debug("I am expecting to write to {0}".format(hex(id(tmp_data_provider.shared_memory[0][0][1][0]))))
 
         this = BaseGenerator(
@@ -447,12 +447,12 @@ class TestFileDataProvider(TestCase):
 
         tmp_data_provider.start_queues()
         tmp_data_provider.start_filler(FileFiller,
-                                       io_driver=H5DataIODriver())
+                                       io_ctlr=IOController())
 
         tmp_data_provider.process_malloc_requests()
 
         tmp_data_provider.start_reader(FileReader,
-                                       io_driver=H5DataIODriver())
+                                       io_ctlr=IOController())
 
         # lg.debug("I am expecting to write to {0}".format(hex(id(tmp_data_provider.shared_memory[0][0][1][0]))))
 
@@ -762,7 +762,7 @@ class TestFileDataProvider(TestCase):
                                                       max_batches=max_batches,
                                                       writer_config=[{
                                                           'data_dst' : data_dst,
-                                                          'io_driver': H5DataIODriver({'cache_handles': True}),
+                                                          'io_ctlr': IOController(),
                                                           # 'pre_write_function':''
                                                       }])
 

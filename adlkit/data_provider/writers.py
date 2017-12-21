@@ -20,12 +20,11 @@ or implied.  See the License for the specific language governing permissions and
 
 import collections
 import logging as lg
-import multiprocessing as mp
 import time
 
 from adlkit.data_provider.comm_drivers import BaseCommDriver
 from adlkit.data_provider.config import WRITER_OFFSET
-from adlkit.data_provider.io_drivers import DataIODriver
+from adlkit.data_provider.io_drivers import IOController
 from adlkit.data_provider.workers import Worker
 
 writer_lg = lg.getLogger('data_provider.workers.writers')
@@ -33,7 +32,6 @@ writer_lg.setLevel(lg.DEBUG)
 
 
 class BaseWriter(Worker):
-    io_driver = None
     data_src = None
     data_dst = None
 
@@ -42,7 +40,10 @@ class BaseWriter(Worker):
 
     complete = None
 
-    def __init__(self, io_driver, worker_id, comm_driver, data_src, data_dst,
+    def __init__(self,
+                 # io_driver,
+                 io_ctlr,
+                 worker_id, comm_driver, data_src, data_dst,
                  read_batches_per_epoch=None,
                  pre_write_function=None,
                  meta=None,
@@ -57,9 +58,9 @@ class BaseWriter(Worker):
                                          **kwargs)
 
         assert isinstance(comm_driver, BaseCommDriver)
-        assert isinstance(io_driver, DataIODriver)
+        assert isinstance(io_ctlr, IOController)
         assert isinstance(data_src, collections.Iterable)
-        self.io_driver = io_driver
+        self.io_ctlr = io_ctlr
         self.data_src = data_src
         self.data_dst = data_dst
         self.read_batches_per_epoch = read_batches_per_epoch
@@ -96,37 +97,37 @@ class BaseWriter(Worker):
 
     def write(self):
         self.debug('starting...')
+        with self.io_ctlr:
+            io_driver = self.io_ctlr(self.data_dst)
+            with io_driver:
+                self.current_handle = io_driver.put(self.data_dst, read_batches_per_epoch=self.read_batches_per_epoch)
 
-        self.current_handle = self.io_driver.put(self.data_dst, read_batches_per_epoch=self.read_batches_per_epoch)
-
-        with self.io_driver:
-            next_datum_time = time.time()
-            while not self.should_stop():
-                try:
-                    payload = next(self.data_src)
-                except StopIteration:
-                    self.debug(' StopIteration received...')
-                    break
-
-                self.debug("next_datum_time_wait_time={0}".format(time.time() - next_datum_time))
-
-                # descriptor, datum = payload
-                # TODO - wghilliard - more better dataset naming
-                descriptor, datum = 'cache', payload
-
-                write_function_time = time.time()
-                if self.pre_write_function:
-                    datum = self.pre_write_function(datum)
-                self.debug(" write_function_time={0}".format(time.time() - write_function_time))
-
-                datum_write_time = time.time()
-                self.current_handle[descriptor] = datum
-                self.debug(" datum_write_time={0}".format(time.time() - datum_write_time))
-
-                self.batch_count += 1
-                self.debug(" wrote={}/{}".format(self.batch_count, self.max_batches))
                 next_datum_time = time.time()
+                while not self.should_stop():
+                    try:
+                        payload = next(self.data_src)
+                    except StopIteration:
+                        self.debug(' StopIteration received...')
+                        break
+
+                    self.debug("next_datum_time_wait_time={0}".format(time.time() - next_datum_time))
+
+                    # descriptor, datum = payload
+                    # TODO - wghilliard - more better dataset naming
+                    descriptor, datum = 'cache', payload
+
+                    write_function_time = time.time()
+                    if self.pre_write_function:
+                        datum = self.pre_write_function(datum)
+                    self.debug(" write_function_time={0}".format(time.time() - write_function_time))
+
+                    datum_write_time = time.time()
+                    self.current_handle[descriptor] = datum
+                    self.debug(" datum_write_time={0}".format(time.time() - datum_write_time))
+
+                    self.batch_count += 1
+                    self.debug(" wrote={}/{}".format(self.batch_count, self.max_batches))
+                    next_datum_time = time.time()
 
         self.debug("exiting...")
         self.seppuku()
-

@@ -28,7 +28,7 @@ from unittest import TestCase
 import numpy as np
 
 from adlkit.data_provider.comm_drivers import QueueCommDriver
-from adlkit.data_provider.io_drivers import H5DataIODriver
+from adlkit.data_provider.io_drivers import H5DataIODriver, IOController
 from adlkit.data_provider.readers import FileReader
 
 lg.basicConfig(level=lg.INFO, format='%(asctime)s %(levelname)s %(name)s %(message)s ')
@@ -94,7 +94,9 @@ class TestFileReader(TestCase):
                             max_batches=max_batches, read_size=read_size,
                             class_index_map=mock_class_index_map,
                             file_index_list=mock_file_index_list,
-                            io_driver=H5DataIODriver())
+                            io_ctlr=IOController()
+                            # io_driver=H5DataIODriver()
+                            )
 
         # building queue up with read requests
         for batch in mock_batches:
@@ -177,10 +179,13 @@ class TestFileReader(TestCase):
         reader = FileReader(worker_id=reader_id,
                             comm_driver=comm_driver,
                             shared_memory_pointer=shared_data_pointer,
-                            max_batches=max_batches, read_size=read_size,
+                            max_batches=max_batches,
+                            read_size=read_size,
                             class_index_map=mock_class_index_map,
                             file_index_list=mock_file_index_list,
-                            io_driver=H5DataIODriver({"cache_handles": True}))
+                            io_ctlr=IOController()
+                            # io_driver=H5DataIODriver({"cache_handles": True})
+                            )
 
         reader.read()
 
@@ -198,8 +203,8 @@ class TestFileReader(TestCase):
                                   max_batches))
 
         target = 0
-        self.assertGreater(len(reader.io_driver.file_handle_holder), 0)
-        for handle in reader.io_driver.file_handle_holder:
+        self.assertGreaterEqual(len(reader.io_ctlr('').file_handle_holder), 0)
+        for handle in reader.io_ctlr('').file_handle_holder:
             # Here we try to close the file again, this will raise an Exception and thus means the caching cleaned up
             # successfully. if 0 then we closed everything successfully with the __exit__ function
             target += 1
@@ -268,7 +273,9 @@ class TestFileReader(TestCase):
                             class_index_map=mock_class_index_map,
                             make_one_hot=True, make_class_index=True,
                             file_index_list=mock_file_index_list,
-                            io_driver=H5DataIODriver())
+                            io_ctlr=IOController()
+                            # io_driver=H5DataIODriver()
+                            )
 
         reader.read()
 
@@ -341,7 +348,9 @@ class TestFileReader(TestCase):
                             file_index_list=mock_file_index_list,
                             make_one_hot=True,
                             make_class_index=True,
-                            io_driver=H5DataIODriver())
+                            io_ctlr=IOController()
+                            # io_driver=H5DataIODriver()
+                            )
 
         reader.read()
 
@@ -481,7 +490,9 @@ class TestFileReader(TestCase):
                             make_class_index=True,
                             make_file_index=True,
                             file_index_list=mock_file_index_list,
-                            io_driver=H5DataIODriver())
+                            io_ctlr=IOController()
+                            # io_driver=H5DataIODriver()
+        )
 
         reader.read()
 

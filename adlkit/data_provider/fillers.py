@@ -24,7 +24,7 @@ import time
 from numpy import random
 
 from .config import FILLER_OFFSET
-from .io_drivers import DataIODriver
+from .io_drivers import DataIODriver, IOController
 from .workers import Worker
 
 RANDOM = random.random
@@ -37,7 +37,8 @@ class BaseFiller(Worker):
 
     def __init__(self,
                  comm_driver,
-                 io_driver,
+                 # io_driver,
+                 io_ctlr,
                  worker_id,
                  read_batches_per_epoch=None,
                  max_batches=None, **kwargs):
@@ -47,8 +48,11 @@ class BaseFiller(Worker):
         self.read_batches_per_epoch = read_batches_per_epoch
         self.data_set_tracker = dict()
 
-        assert isinstance(io_driver, DataIODriver)
-        self.io_driver = io_driver
+        # assert isinstance(io_driver, DataIODriver)
+        # self.io_driver = io_driver
+
+        assert isinstance(io_ctlr, IOController)
+        self.io_ctlr = io_ctlr
 
     def debug(self, message):
         if isinstance(message, list):
@@ -78,9 +82,8 @@ class BaseFiller(Worker):
         """
 
         self.debug("starting...")
-        with self.io_driver:
+        with self.io_ctlr:
             while not self.should_stop():
-
                 if self.read_batches_per_epoch is not None and self.batch_count % self.read_batches_per_epoch == 0:
                     self.reset()
 
@@ -167,16 +170,18 @@ class FileFiller(BaseFiller):
     def inform_data_provider(self, data_sets, batch):
         malloc_requests = list()
         if self.shape_reader is None:
-            for data_set in data_sets:
-                file_name = self.file_index_list[batch[0][0]]
+            file_name = self.file_index_list[batch[0][0]]
+            io_driver = self.io_ctlr(file_name)
 
-                data_handle = self.io_driver.get(file_name)
+            with io_driver:
 
-                shape = data_handle[data_set][0].shape
+                data_handle = io_driver.get(file_name)
 
-                self.io_driver.close(file_name, data_handle)
+                for data_set in data_sets:
+                    shape = data_handle[data_set][0].shape
+                    malloc_requests.append((data_set, shape))
 
-                malloc_requests.append((data_set, shape))
+                io_driver.close(file_name, data_handle)
 
         else:
             payloads = self.shape_reader.process_batch(batch, store_in_shared=False)
@@ -224,86 +229,87 @@ class FileFiller(BaseFiller):
         tmp_data_set_tracker = list()
 
         self.compute_probability()
+        io_driver = self.io_ctlr('h5://')
+        with io_driver:
+            for class_name in self.classes:
 
-        for class_name in self.classes:
+                tmp_class_holder = self.classes[class_name]
 
-            tmp_class_holder = self.classes[class_name]
+                tmp_examples_added = 0
+                while tmp_examples_added < tmp_class_holder['n_examples']:
+                    if tmp_class_holder['example_index'] == 0:
+                        file_name = tmp_class_holder['file_names'][tmp_class_holder['file_index']]
+                        file_name = self.file_index_list[file_name]
 
-            tmp_examples_added = 0
-            while tmp_examples_added < tmp_class_holder['n_examples']:
-                if tmp_class_holder['example_index'] == 0:
-                    file_name = tmp_class_holder['file_names'][tmp_class_holder['file_index']]
-                    file_name = self.file_index_list[file_name]
+                        self.debug(['Opening:', class_name, str(tmp_class_holder['file_index']), file_name])
 
-                    self.debug(['Opening:', class_name, str(tmp_class_holder['file_index']), file_name])
+                        data_handle = io_driver.get(file_name, suppress=self.suppress_opens)
 
-                    data_handle = self.io_driver.get(file_name, suppress=self.suppress_opens)
+                        for data_set in tmp_class_holder['data_set_names']:
+                            if data_set not in tmp_data_set_tracker:
+                                tmp_data_set_tracker.append(data_set)
 
-                    for data_set in tmp_class_holder['data_set_names']:
-                        if data_set not in tmp_data_set_tracker:
-                            tmp_data_set_tracker.append(data_set)
+                        # TODO - wghilliard - implement the assert
+                        # assert (sum(tmp_list) != len(tmp_list) * tmp_list[0],
+                        #         "{0} has datasets with mismatched tensor shapes".format(file_name))
 
-                    # TODO - wghilliard - implement the assert
-                    # assert (sum(tmp_list) != len(tmp_list) * tmp_list[0],
-                    #         "{0} has datasets with mismatched tensor shapes".format(file_name))
-
-                    filter_time = time.time()
-                    if self.filter_function is not None:
-                        tmp_filter_index_list = self.filter_function[class_name](data_handle,
-                                                                                 tmp_class_holder["data_set_names"])
-                    else:
-                        tmp_filter_index_list = range(data_handle[tmp_class_holder["data_set_names"][0]].shape[0])
-
-                    self.debug("filter_function_time={0}".format(time.time() - filter_time))
-
-                    tmp_class_holder['current_file_indices'] = sorted(tmp_filter_index_list)
-
-                    self.io_driver.close(file_name, data_handle)
-
-                start_index = tmp_class_holder['example_index']
-
-                possible_end_index = tmp_class_holder['example_index'] \
-                                     + tmp_class_holder['n_examples'] \
-                                     - tmp_examples_added
-
-                max_index_possible = len(tmp_class_holder['current_file_indices']) - 1
-
-                end_index = min(possible_end_index, max_index_possible)
-
-                if self.filter_function is not None:
-                    read_descriptor = tmp_class_holder['current_file_indices'][
-                                      start_index:end_index]
-                else:
-                    read_descriptor = (tmp_class_holder['current_file_indices'][start_index],
-                                       tmp_class_holder['current_file_indices'][end_index])
-
-                # TODO figure out how to test this better
-                if start_index == end_index:
-                    read_descriptor = [tmp_class_holder['current_file_indices'][start_index]]
-                    tmp_examples_added += 1
-                else:
-                    tmp_examples_added += end_index - start_index
-
-                batch.append((tmp_class_holder['file_names'][tmp_class_holder['file_index']],
-                              tmp_class_holder['data_set_names'],
-                              class_name,
-                              read_descriptor,
-                              self.batch_count))
-
-                if end_index >= max_index_possible or start_index == end_index:
-
-                    tmp_class_holder['example_index'] = 0
-                    tmp_class_holder['file_index'] += 1
-
-                    # TODO refine wrap logic
-                    if len(tmp_class_holder['file_names']) == tmp_class_holder['file_index']:
-                        if self.wrap_examples:
-                            tmp_class_holder['file_index'] = 0
+                        filter_time = time.time()
+                        if self.filter_function is not None:
+                            tmp_filter_index_list = self.filter_function[class_name](data_handle,
+                                                                                     tmp_class_holder["data_set_names"])
                         else:
-                            return None
+                            tmp_filter_index_list = range(data_handle[tmp_class_holder["data_set_names"][0]].shape[0])
 
-                else:
-                    tmp_class_holder['example_index'] = end_index
+                        self.debug("filter_function_time={0}".format(time.time() - filter_time))
+
+                        tmp_class_holder['current_file_indices'] = sorted(tmp_filter_index_list)
+
+                        io_driver.close(file_name, data_handle)
+
+                    start_index = tmp_class_holder['example_index']
+
+                    possible_end_index = tmp_class_holder['example_index'] \
+                                         + tmp_class_holder['n_examples'] \
+                                         - tmp_examples_added
+
+                    max_index_possible = len(tmp_class_holder['current_file_indices']) - 1
+
+                    end_index = min(possible_end_index, max_index_possible)
+
+                    if self.filter_function is not None:
+                        read_descriptor = tmp_class_holder['current_file_indices'][
+                                          start_index:end_index]
+                    else:
+                        read_descriptor = (tmp_class_holder['current_file_indices'][start_index],
+                                           tmp_class_holder['current_file_indices'][end_index])
+
+                    # TODO figure out how to test this better
+                    if start_index == end_index:
+                        read_descriptor = [tmp_class_holder['current_file_indices'][start_index]]
+                        tmp_examples_added += 1
+                    else:
+                        tmp_examples_added += end_index - start_index
+
+                    batch.append((tmp_class_holder['file_names'][tmp_class_holder['file_index']],
+                                  tmp_class_holder['data_set_names'],
+                                  class_name,
+                                  read_descriptor,
+                                  self.batch_count))
+
+                    if end_index >= max_index_possible or start_index == end_index:
+
+                        tmp_class_holder['example_index'] = 0
+                        tmp_class_holder['file_index'] += 1
+
+                        # TODO refine wrap logic
+                        if len(tmp_class_holder['file_names']) == tmp_class_holder['file_index']:
+                            if self.wrap_examples:
+                                tmp_class_holder['file_index'] = 0
+                            else:
+                                return None
+
+                    else:
+                        tmp_class_holder['example_index'] = end_index
 
         for class_name in self.classes:
             self.classes[class_name]['n_examples'] = 0
