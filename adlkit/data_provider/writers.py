@@ -98,7 +98,7 @@ class BaseWriter(Worker):
     def write(self):
         self.debug('starting...')
         with self.io_ctlr:
-            io_driver = self.io_ctlr(self.data_dst)
+            io_driver = self.io_ctlr(self.data_dst.split('.')[-1])
             with io_driver:
                 self.current_handle = io_driver.put(self.data_dst, read_batches_per_epoch=self.read_batches_per_epoch)
 
@@ -128,6 +128,6 @@ class BaseWriter(Worker):
                     self.batch_count += 1
                     self.debug(" wrote={}/{}".format(self.batch_count, self.max_batches))
                     next_datum_time = time.time()
-
+            io_driver.close(self.data_dst, self.current_handle, force=True)
         self.debug("exiting...")
         self.seppuku()

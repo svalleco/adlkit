@@ -107,10 +107,11 @@ class BaseGenerator(Worker):
                         "multi_or_out_queue_get_wait_time={0}".format(time.time() - start_time))
                 # self.debug("multi_or_out_queue_get_wait_time={0} queue_size={1}".format(
                 # time.time() - start_time, self.out_queue.qsize()))
-                self.debug("successfully got a read_batch from the out_queue")
+
                 try:
                     # reader_id, bucket_index, data_sets, batch_id = read_batch
                     bucket_index, data_sets, batch_id = read_batch
+                    self.debug("successfully got a read_batch_id={} from the out_queue".format(batch_id))
                 except ValueError:
                     yield None
 
@@ -155,7 +156,8 @@ class BaseGenerator(Worker):
                     self.debug("yield_wait_time={0}".format(time.time() - yield_wait_time))
                     self.batch_count += 1
             else:
-                self.debug("out_queue empty, sleeping")
+                self.debug(" out_queue empty, sleeping")
+                self.debug(" batch_count={}/{}".format(self.batch_count, self.max_batches))
                 self.sleep()
 
         self.debug("exiting...")

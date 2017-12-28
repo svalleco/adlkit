@@ -33,7 +33,7 @@ filler_logger = lg.getLogger('data_provider.workers.fillers')
 
 
 class BaseFiller(Worker):
-    io_driver = None
+    # io_driver = None
 
     def __init__(self,
                  comm_driver,
@@ -229,7 +229,7 @@ class FileFiller(BaseFiller):
         tmp_data_set_tracker = list()
 
         self.compute_probability()
-        io_driver = self.io_ctlr('h5://')
+        io_driver = self.io_ctlr('default')
         with io_driver:
             for class_name in self.classes:
 

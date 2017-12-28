@@ -17,7 +17,6 @@ AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE, either express
 or implied.  See the License for the specific language governing permissions and limitations under the License.
 """
-import logging as lg
 from abc import ABCMeta, abstractmethod
 
 import h5py
@@ -59,6 +58,7 @@ class DataIODriver(object):
 
 
 class FileDataIODriver(DataIODriver):
+    protocol = 'file'
     file_handle_holder = None
     cache_handles = False
 
@@ -186,7 +186,7 @@ class H5FileWrapper(object):
             data_set[-1] = value
 
         else:
-            msg = 'H5FileWrapper not sure how to handle type(payload)={}'.format(type(payload))
+            msg = 'H5FileWrapper not sure how to handle type(value)={}'.format(type(value))
             raise TypeError(msg)
 
         return True
@@ -199,6 +199,13 @@ class H5FileWrapper(object):
 
     def keys(self):
         return self._data.keys()
+
+    @property
+    def filename(self):
+        return self._data.filename
+        # TODO - wghilliard error handling
+        # if self._data:
+        #     return se
 
 
 class H5DataIODriver(FileDataIODriver):
@@ -222,22 +229,25 @@ class H5DataIODriver(FileDataIODriver):
 
 class Controller(object):
     drivers = dict()
-    opts = None
+    opts = dict()
 
     is_initialized = False
 
+    # def __new__(cls, *args, **kwargs):
+
     def __init__(self, **kwargs):
-        self.opts = {
+        self.opts = self.opts or {
             'keep_alive'   : True,
             'cache_handles': True,
             'auto_init'    : True,
             'default'      : 'h5'
         }
         self.opts.update(kwargs)
-        if self.opts.get('auto_init'):
+        if self.opts.get('auto_init') and not self.is_initialized:
             self.init()
 
         self.drivers['default'] = self.drivers[self.opts.get('default')]
+        self.is_initialized = False
 
     def init(self):
         for key, driver_cls in self.drivers.items():

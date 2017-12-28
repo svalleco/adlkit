@@ -86,7 +86,7 @@ class FileDataProvider(AbstractDataProvider):
             'skip'                  : 0,
 
             # The max number of batches to deliver, per generator.
-            'max_batches'           : 1e12,
+            'max_batches'           : None,
 
             # If examples can be reused.
             'wrap_examples'         : True,

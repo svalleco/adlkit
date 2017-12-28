@@ -48,7 +48,7 @@ class DataPointer(CatalogObject):
     data_set_list = None
 
     def to_url(self):
-        return "{}:/{}:{}:".format(self.source_type, self.source_name, ",".join(self.data_set_list), self.index)
+        return "{}://{}:{}:".format(self.source_type, self.source_name, ",".join(self.data_set_list), self.index)
 
     def from_url(self, url):
         self.source_type, self.source_name, self.data_set_list, self.index = self._parse_url(url)
@@ -56,7 +56,7 @@ class DataPointer(CatalogObject):
 
     @staticmethod
     def _parse_url(url):
-        source_type, rest = url.split(':/')
+        source_type, rest = url.split('://')
         source_name, data_set_list, index = rest.split(":")
 
         return source_type, source_name, data_set_list, index
