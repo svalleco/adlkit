@@ -257,7 +257,11 @@ class Controller(object):
                 pass
             except Exception as e:
                 raise_with_traceback(e)
-
+            try:
+                for name in self.drivers[key].alias:
+                    self.drivers[name] = self.drivers[key]
+            except AttributeError:
+                pass
         self.is_initialized = True
 
 

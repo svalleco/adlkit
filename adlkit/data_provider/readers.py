@@ -227,7 +227,7 @@ class FileReader(BaseReader):
             file_path_index, data_sets, class_name, read_descriptor, batch_id = read_request
 
             file_path = self.file_index_list[file_path_index]
-            io_driver = self.io_ctlr(file_path)
+            io_driver = self.io_ctlr(file_path.split('.')[-1])
             with io_driver:
                 data_handle = io_driver.get(file_path)
 

@@ -20,6 +20,7 @@ or implied.  See the License for the specific language governing permissions and
 
 import collections
 import logging as lg
+import os
 import time
 
 from adlkit.data_provider.comm_drivers import BaseCommDriver
@@ -28,7 +29,7 @@ from adlkit.data_provider.io_drivers import IOController
 from adlkit.data_provider.workers import Worker
 
 writer_lg = lg.getLogger('data_provider.workers.writers')
-writer_lg.setLevel(lg.DEBUG)
+# writer_lg.setLevel(lg.DEBUG)
 
 
 class BaseWriter(Worker):
@@ -41,7 +42,6 @@ class BaseWriter(Worker):
     complete = None
 
     def __init__(self,
-                 # io_driver,
                  io_ctlr,
                  worker_id, comm_driver, data_src, data_dst,
                  read_batches_per_epoch=None,
@@ -97,6 +97,13 @@ class BaseWriter(Worker):
 
     def write(self):
         self.debug('starting...')
+
+        # TODO - wghilliard - MORE BETTER PLS
+        lock_file_name = self.data_dst + '.lock'
+        with open(lock_file_name, 'a'):
+            self.debug("writing lock_file={}".format(lock_file_name))
+            pass
+
         with self.io_ctlr:
             io_driver = self.io_ctlr(self.data_dst.split('.')[-1])
             with io_driver:
@@ -129,5 +136,8 @@ class BaseWriter(Worker):
                     self.debug(" wrote={}/{}".format(self.batch_count, self.max_batches))
                     next_datum_time = time.time()
             io_driver.close(self.data_dst, self.current_handle, force=True)
+
+        self.debug("removing lock_file={}".format(lock_file_name))
+        os.remove(lock_file_name)
         self.debug("exiting...")
         self.seppuku()
