@@ -229,7 +229,7 @@ class FileFiller(BaseFiller):
         tmp_data_set_tracker = list()
 
         self.compute_probability()
-        io_driver = self.io_ctlr('lmdb+proto')
+        io_driver = self.io_ctlr('default')
         with io_driver:
             for class_name in self.classes:
 
