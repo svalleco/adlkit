@@ -1,4 +1,4 @@
-import Queue
+import queue
 import logging as lg
 import time
 
@@ -59,7 +59,7 @@ class BaseWatcher(Worker):
                     self.batch_count += 1
                     out_queue_get_wait_time = time.time()
 
-            except Queue.Empty:
+            except queue.Empty:
                 pass
 
             start_time = time.time()

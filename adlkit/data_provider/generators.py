@@ -1,4 +1,4 @@
-import Queue
+import queue
 import logging as lg
 import time
 
@@ -76,7 +76,7 @@ class BaseGenerator(Worker):
             start_time = time.time()
             try:
                 read_batch = self.out_queue.get(timeout=1)
-            except Queue.Empty:
+            except queue.Empty:
                 # self.debug("out_queue empty, sleeping")
                 self.sleep()
             finally:
@@ -104,7 +104,7 @@ class BaseGenerator(Worker):
                     self.last_reader_index = reader_id
 
                     for batch_index in range(0, len(payload[0]), self.batch_size):
-                        batch = range(len(payload))
+                        batch = list(range(len(payload)))
                         for data_set_index, data_set in enumerate(payload):
                             batch[data_set_index] = data_set[batch_index:batch_index + self.batch_size]
 

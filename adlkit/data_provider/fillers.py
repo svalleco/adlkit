@@ -1,4 +1,4 @@
-import Queue
+import queue
 import copy
 import logging as lg
 import time
@@ -77,7 +77,7 @@ class BaseFiller(Worker):
                     self.in_queue.put(batch, block=False)
                     self.debug("successfully put data in in_queue")
                     break
-                except Queue.Full:
+                except queue.Full:
                     self.debug("in_queue is full, sleeping")
                     self.sleep()
 
@@ -164,7 +164,7 @@ class H5Filler(BaseFiller):
             try:
                 self.malloc_queue.put(malloc_requests)
                 break
-            except Queue.Full:
+            except queue.Full:
                 pass
         self.debug("informing data provider of malloc shapes `{0}`".format(malloc_requests))
         self.report = False
@@ -240,8 +240,8 @@ class H5Filler(BaseFiller):
                                                                                  tmp_class_holder[
                                                                                      "data_set_names"])
                     else:
-                        tmp_filter_index_list = range(
-                                h5_file_handle[tmp_class_holder["data_set_names"][0]].shape[0])
+                        tmp_filter_index_list = list(range(
+                                h5_file_handle[tmp_class_holder["data_set_names"][0]].shape[0]))
 
                     self.debug("filter_function_time={0}".format(time.time() - filter_time))
 

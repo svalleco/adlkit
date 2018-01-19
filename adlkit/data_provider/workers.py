@@ -1,4 +1,4 @@
-import Queue
+import queue
 import logging as lg
 import multiprocessing
 import time
@@ -50,7 +50,7 @@ class Worker(billiard.Process):
         try:
             self.control_queue.put(payload, block=block)
             return True
-        except Queue.Full:
+        except queue.Full:
             # self.sleep()
             # worker_log.debug(" *{0}* command queue full".format(self.worker_id))
             return False
@@ -58,7 +58,7 @@ class Worker(billiard.Process):
     def get_command(self, block=True):
         try:
             return self.control_queue.get(block=block)
-        except Queue.Empty:
+        except queue.Empty:
             # worker_log.debug(" *{0}* command queue empty".format(self.worker_id))
             # self.sleep()
             return None

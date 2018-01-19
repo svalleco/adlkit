@@ -1,4 +1,4 @@
-import Queue
+import queue
 import ctypes
 import logging as lg
 import multiprocessing
@@ -325,7 +325,7 @@ class FileDataProvider(AbstractDataProvider):
             # ensuring we don't index error
             if len(self.shared_memory) < reader_id + 1:
                 self.shared_memory.extend(
-                        range(len(self.shared_memory), reader_id + 1))
+                        list(range(len(self.shared_memory), reader_id + 1)))
 
             buckets = list()
             for bucket in range(self.config.n_buckets):
@@ -334,9 +334,10 @@ class FileDataProvider(AbstractDataProvider):
                             self.malloc_requests + self.extra_malloc_requests):
                     # reshape the requested shape to match the read_size
                     shape = (self.config.read_size,) + request[1]
-
+                    nshape = int(np.prod(shape))
                     shared_array_base = multiprocessing.Array(ctypes.c_double,
-                                                              np.prod(shape),
+                                                              nshape,
+                                                              #np.prod(shape),
                                                               lock=False)
                     shared_array = np.ctypeslib.as_array(shared_array_base)
                     shared_array = shared_array.reshape(shape)
@@ -383,7 +384,8 @@ class FileDataProvider(AbstractDataProvider):
         # if self.config.wait_for_malloc:
         #     self.wait_for_malloc_requests()
         self.process_malloc_requests()
-        self.make_shared_malloc(range(self.config.n_readers))
+        #self.make_shared_malloc(range(self.config.n_readers))
+        self.make_shared_malloc(list(range(self.config.n_readers)))
 
         try:
             for reader_id in range(self.config.n_readers):
@@ -623,26 +625,26 @@ class FileDataProvider(AbstractDataProvider):
         while True:
             try:
                 self.in_queue.get(timeout=1)
-            except Queue.Empty:
+            except queue.Empty:
                 break
 
         while True:
             try:
                 self.out_queue.get(timeout=1)
-            except Queue.Empty:
+            except queue.Empty:
                 break
 
         while True:
             try:
                 self.malloc_queue.get(timeout=1)
-            except Queue.Empty:
+            except queue.Empty:
                 break
 
         for queue_index in range(len(self.multicast_queues)):
             while True:
                 try:
                     self.multicast_queues[queue_index].get(timeout=1)
-                except Queue.Empty:
+                except queue.Empty:
                     break
                 break
 
@@ -679,7 +681,7 @@ class FileDataProvider(AbstractDataProvider):
     @staticmethod
     def _extend_array(in_array, in_id):
         if len(in_array) < in_id + 1:
-            in_array.extend(range(len(in_array), in_id + 1))
+            in_array.extend(list(range(len(in_array), in_id + 1)))
 
 
 class H5FileDataProvider(FileDataProvider):

@@ -1,4 +1,4 @@
-import Queue
+import queue
 import collections
 import logging as lg
 import time
@@ -113,7 +113,7 @@ class BaseReader(Worker):
                         self.out_queue.put(data_pointer, timeout=0)
                         self.debug("successfully put data in out_queue")
                         break
-                    except Queue.Full:
+                    except queue.Full:
                         # self.debug("out_queue is full, sleeping")
                         self.sleep()
 
@@ -135,7 +135,7 @@ class BaseReader(Worker):
     def get_batch(self):
         try:
             return self.in_queue.get(timeout=1)
-        except Queue.Empty:
+        except queue.Empty:
             return None
 
     def process_batch(self, batch, **kwargs):
@@ -241,7 +241,7 @@ class H5Reader(BaseReader):
                 try:
                     payloads[data_set][read_index]
                 except KeyError:
-                    payloads[data_set] = range(n_read_requests)
+                    payloads[data_set] = list(range(n_read_requests))
 
                 if isinstance(read_descriptor, tuple):
                     # TODO use read_direct function instead
